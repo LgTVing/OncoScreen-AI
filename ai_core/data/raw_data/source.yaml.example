@@ -1,0 +1,12 @@
+# Sao chép file này thành source.yaml trong thư mục của từng tài liệu.
+publisher: "Tên cơ quan phát hành"
+title: "Tên tài liệu"
+url: "https://example.org/document"
+publication_date: "YYYY-MM-DD"
+version: "Phiên bản hoặc số quyết định"
+accessed_on: "YYYY-MM-DD"
+jurisdiction: "Quốc gia hoặc khu vực áp dụng"
+language: "vi"
+license: "Giấy phép hoặc điều khoản bản quyền"
+reuse_notes: "Điều kiện tái sử dụng đã kiểm tra"
+sha256: ""

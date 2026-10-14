@@ -2,6 +2,23 @@
 
 > Thư mục này chứa bản Markdown đã được biên tập để ingest vào RAG. Đây là dữ liệu nghiên cứu/demo, không phải nguồn để tự động đưa ra quyết định lâm sàng.
 
+## Cấu trúc thư mục `ai_core/data/`
+
+```text
+ai_core/data/
+├── raw_data/                       # Tài liệu nguồn đã tải/thu thập; không ingest trực tiếp
+│   ├── README.md                   # Quy ước lưu nguồn và metadata
+│   └── source.yaml.example         # Mẫu ghi xuất xứ, phiên bản, giấy phép
+├── guidelines/                     # Bản Markdown đã biên tập; đầu vào hiện tại của RAG
+│   ├── README.md                   # Hướng dẫn thu thập và chuẩn hóa (tài liệu này)
+│   └── breast_uspstf_2024.md       # Ví dụ guideline đã chuẩn hóa
+├── questionnaire.json              # Câu hỏi đánh giá nguy cơ
+├── red_flags.json                  # Quy tắc cảnh báo dấu hiệu nguy hiểm
+└── vector_store/                   # Chroma sinh khi ingest; không commit
+```
+
+Luồng dữ liệu là `raw_data/` → người phụ trách kiểm tra nguồn, giấy phép và nội dung → biên tập thành `guidelines/*.md` → chạy ingest để tạo `vector_store/`. Raw data giữ tài liệu gốc để đối chiếu; RAG hiện chỉ đọc Markdown trong `guidelines/`, không đọc PDF/HTML ở `raw_data/`. Không lưu bệnh án hay dữ liệu cá nhân trong hai thư mục này.
+
 ## 1. Dữ liệu nào được đưa vào?
 
 Chỉ thu thập **khuyến nghị sàng lọc/tầm soát cho người chưa có triệu chứng**, bao gồm đối tượng, độ tuổi, phương pháp, chu kỳ, mức khuyến nghị và ngoại lệ. Tách rõ nội dung về chẩn đoán, điều trị, tiên lượng và sàng lọc triệu chứng; không biến những nội dung đó thành lịch tầm soát.
