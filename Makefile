@@ -2,8 +2,7 @@
 .PHONY: setup ai backend frontend ingest test lint
 
 setup:            ## Cài đặt cả 3 khối
-	cd ai_core && pip install -e ".[dev]"
-	cd backend && pip install -r requirements.txt
+	pip install -r requirements.txt
 	cd frontend && npm install
 
 ingest:           ## Nạp guideline vào vector DB

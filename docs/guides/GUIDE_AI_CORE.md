@@ -15,10 +15,12 @@ python -m ai_core.cli demo     # chạy MockAgent với 1 ca mẫu, in JSON
 ## 1. Việc cần làm (theo thứ tự ưu tiên)
 
 ### 1.1 Chốt contract & mock (M1) — làm TRƯỚC, để BE/FE có cái mà dùng
-- [ ] Rà `ai_core/schemas.py`: đủ trường chưa? Thiếu gì thêm ngay ở M1 (sau M1 sửa contract phải PR `contract/*`).
-- [ ] `data/questionnaire.json`: bộ câu hỏi động. Mỗi câu có `id`, `text`, `type`, `options`, `depends_on` (câu hỏi con hiện khi câu cha có giá trị nhất định, vd. `pack_years` chỉ hỏi nếu `smoking=true`).
-- [ ] `data/red_flags.json`: danh sách triệu chứng nguy hiểm + severity + lời khuyên. Câu hỏi triệu chứng trong questionnaire có `id` khớp mã red-flag.
-- [ ] `mock.py`: `MockAgent` trả kết quả hợp lệ cho 3 kịch bản demo (xem `02_BUSINESS_FLOW.md`). Mock **phải** bắt red-flag thật (rule-based) để FE test được màn cảnh báo.
+- [x] Rà `ai_core/schemas.py`: contract có kiểm tra payload theo trạng thái, yêu cầu source cho từng plan item và disclaimer/trace ID.
+- [x] `data/questionnaire.json`: bộ câu hỏi động có `depends_on`; `pack_years` chỉ hiện khi `smoking=true`.
+- [x] `data/red_flags.json`: rule có severity/lời khuyên và mã khớp các câu hỏi triệu chứng.
+- [x] `mock.py`: `MockAgent` hỗ trợ ba kịch bản demo; detector red-flag dùng chung logic rule-based.
+
+Mock chạy độc lập bằng `python -m ai_core.cli demo` trong thư mục `ai_core/`; xem thêm `ai_core/README.md`. Phần tích hợp FE/BE và agent thật được làm sau.
 
 ### 1.2 Dữ liệu guideline & RAG (M2)
 - [ ] Thu thập guideline tầm soát (ưu tiên nguồn mở: USPSTF, ACS, WHO, Bộ Y tế VN, hướng dẫn bệnh viện K…). Lưu `data/guidelines/<cancer_type>_<source>.md` với **frontmatter** metadata:
@@ -72,7 +74,10 @@ Edges: `collect → red_flag → (detected? END : assess_risk) → retrieve → 
 Embedding: `EMBEDDING_PROVIDER=local` dùng `sentence-transformers` đa ngôn ngữ (offline, khuyến nghị cho tiếng Việt).
 
 ## 3. Định nghĩa "xong" cho khối bạn
-Xem `DEFINITION_OF_DONE.md` mục AI Core. Ngoài ra: `USE_MOCK_AGENT=false` + `python -m ai_core.cli demo --real` chạy ra plan có source thật.
+
+**Mốc mock để tích hợp:** cài package, chạy được ba ca `breast`, `lung`, `red-flag`; các kết quả hợp lệ theo schema; câu hỏi phụ thuộc và red-flag hoạt động; mọi plan item có source; có disclaimer. Đây là phạm vi hiện tại.
+
+**Mốc AI thật (để sau):** xem `DEFINITION_OF_DONE.md` mục AI Core. Mốc này cần `USE_MOCK_AGENT=false` và `python -m ai_core.cli demo --real` tạo plan grounded trên guideline thật.
 
 ## 4. Đừng làm
 - Đừng trả kết quả trực tiếp cho người dùng (đó là việc backend/HITL).
