@@ -7,7 +7,7 @@ TODO(Tuyền): bổ sung case khi contract đổi.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from ai_core.guardrails.disclaimer import DISCLAIMER_VI
 from ai_core.guardrails.safety import validate_plan
@@ -41,7 +41,10 @@ _SRC_LUNG = Source(
     doc_id="lung_uspstf_2021",
     title="USPSTF 2021 — Lung Cancer Screening",
     section="Recommendation",
-    excerpt="Annual LDCT for adults aged 50–80 with at least 20 pack-years who currently smoke or quit within 15 years.",
+    excerpt=(
+        "Annual LDCT for adults aged 50–80 with at least 20 pack-years "
+        "who currently smoke or quit within 15 years."
+    ),
     url="https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/lung-cancer-screening",
 )
 _SRC_CRC = Source(
@@ -228,7 +231,7 @@ class MockAgent:
         plan = ScreeningPlan(
             items=items,
             general_advice="Duy trì lối sống lành mạnh; trao đổi với bác sĩ về kế hoạch phù hợp với bạn.",
-            generated_at=datetime.now(timezone.utc),
+            generated_at=datetime.now(UTC),
             model="mock",
         )
         validate_plan(plan)
