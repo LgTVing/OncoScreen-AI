@@ -1,0 +1,4 @@
+# Python 3.11+ dependencies for the backend and AI Core.
+# Install from the repository root: python -m pip install -r requirements.txt
+-r backend/requirements.txt
+-e ./ai_core[dev]

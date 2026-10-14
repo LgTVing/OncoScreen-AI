@@ -35,21 +35,25 @@ phải qua bác sĩ duyệt. Xem [docs/00_OVERVIEW.md](docs/00_OVERVIEW.md).
 ## Chạy nhanh (dev)
 
 ```bash
-# 1. Cấu hình + database
+# 1. Tạo môi trường Python và cài dependencies Python (chạy từ repo root)
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+# 2. Cấu hình + database
 cp .env.example .env            # điền LLM_API_KEY (DATABASE_URL mặc định trỏ tới container bên dưới)
 docker compose up -d            # PostgreSQL 16 tại localhost:5432
 
-# 2. AI Core
-cd ai_core && pip install -e ".[dev]" && python scripts/ingest.py
-
-# 3. Backend (tab mới)
-cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload
+# 3. Backend (tab mới; kích hoạt .venv trong tab đó)
+cd backend && uvicorn app.main:app --reload
 #    → http://localhost:8000/docs (Swagger)
 
 # 4. Frontend (tab mới)
 cd frontend && npm install && npm run dev
 #    → http://localhost:3000
 ```
+
+`requirements.txt` cài dependencies cho cả Backend và AI Core. Chạy AI Core mock không cần `LLM_API_KEY`; chỉ cần kích hoạt `.venv` rồi chạy demo từ thư mục `ai_core/`. Embedding local cho RAG thật cần cài thêm extra `local-embed` trong `ai_core/`.
 
 Không muốn chạy Docker? Đặt `DATABASE_URL=sqlite:///./dev.db` trong `.env` (chỉ cho dev nhanh; demo/nộp dùng PostgreSQL).
 
