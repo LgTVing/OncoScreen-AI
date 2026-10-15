@@ -1,5 +1,5 @@
 /** Mock handlers — cùng chữ ký với api.ts. Có delay nhỏ cho giống thật. */
-import type { AnswersIn, EducationContent, LoginIn, Page, PatientDetail, PatientProfileIn, PatientProfileOut, RegisterIn, ReminderOut, ReviewIn, SessionOut, SessionSummary, TokenOut, UserOut } from "@/types/api";
+import type { AnswersIn, CancerType, ChatIn, EducationContent, LoginIn, Page, PatientDetail, PatientProfileIn, PatientProfileOut, QuestionAnswer, RegisterIn, ReminderOut, ReviewIn, SessionOut, SessionSummary, TokenOut, UserOut } from "@/types/api";
 import { DISCLAIMER, doctorUser, patientUser, plan, questionnaire, reminders, sessions } from "./fixtures";
 
 const wait = <T,>(v: T, ms = 300) => new Promise<T>((r) => setTimeout(() => r(v), ms));
@@ -27,9 +27,35 @@ export const submitAnswers = (id: string, b: AnswersIn) => {
   return wait<SessionOut>(complete ? { ...sessions["s-pending"], id, draft_plan: null } : { ...sessions["s-collecting"], id, answers: b.answers });
 };
 export const getPatientDetail = (id: string) => wait<PatientDetail>({ user: { ...patientUser, id }, profile, sessions: Object.values(sessions) });
+export const getDoctorMetrics = () => wait({ sessions: { pending_review: 1, approved: 1, red_flag: 1 }, pending_without_plan: 0, questions_asked: 0 });
 export const review = (id: string, b: ReviewIn) =>
   wait<SessionOut>(b.action === "approve" ? { ...sessions["s-approved"], id, final_plan: b.final_plan ?? plan } : { ...sessions["s-pending"], id, status: "rejected", doctor_note: b.note ?? null });
 export const listReminders = () => wait<ReminderOut[]>(reminders);
 export const completeReminder = (id: string) => wait<ReminderOut>({ ...reminders[0], id, status: "done", completed_at: new Date().toISOString().slice(0, 10) });
 export const getEducation = (type: string) =>
   wait<EducationContent>({ cancer_type: type as EducationContent["cancer_type"], title: `Hiểu về tầm soát ung thư ${type}`, warning_signs: ["Khối u bất thường", "Chảy máu bất thường", "Sụt cân không rõ nguyên nhân"], prevention_tips: ["Không hút thuốc", "Vận động đều đặn", "Tầm soát đúng lịch"], body_md: DISCLAIMER, sources: plan.items[0].sources });
+export const listEducationTopics = () =>
+  wait<Array<{ cancer_type: CancerType; title: string }>>([{ cancer_type: "breast", title: "Tầm soát ung thư vú" }, { cancer_type: "lung", title: "Tầm soát ung thư phổi" }]);
+export const askQuestion = (_id: string, _question: string) =>
+  wait<QuestionAnswer>({
+    answer: "Đây là kế hoạch minh hoạ đã được bác sĩ duyệt. Hãy trao đổi với bác sĩ về câu hỏi cụ thể của bạn.",
+    sources: plan.items[0].sources,
+    disclaimer: DISCLAIMER,
+    trace_id: "qa-mock",
+    insufficient_evidence: false,
+  });
+export const chat = (body: ChatIn) => {
+  const clinical = /triệu chứng|chẩn đoán|điều trị|khối u|chảy máu|tôi (bị|mắc|đang|nên|cần)/i.test(body.question);
+  const hasSource = body.cancer_type === "breast" && !clinical;
+  return wait<QuestionAnswer>({
+    answer: clinical
+      ? "Câu hỏi này cần bác sĩ đánh giá trực tiếp; trợ lý chỉ giải thích kiến thức tầm soát chung."
+      : hasSource
+        ? "(MOCK) Theo guideline mẫu, phụ nữ 40–74 tuổi nguy cơ trung bình được khuyến nghị chụp nhũ ảnh mỗi 2 năm."
+        : "Chưa đủ tài liệu cho chủ đề này để trả lời. Vui lòng trao đổi với bác sĩ.",
+    sources: hasSource ? plan.items[0].sources : [],
+    disclaimer: DISCLAIMER,
+    trace_id: "chat-mock",
+    insufficient_evidence: !hasSource,
+  });
+};

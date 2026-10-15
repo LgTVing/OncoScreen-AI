@@ -65,6 +65,9 @@ export default function PatientDashboard() {
           <Link href="/patient/reminders" className="btn-secondary">
             🔔 Lịch nhắc
           </Link>
+          <Link href="/patient/chat" className="btn-secondary">
+            💬 Chat với AI
+          </Link>
         </div>
       </section>
 

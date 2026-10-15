@@ -12,7 +12,7 @@ from ai_core.schemas import (
     ScreeningPlan,
     SessionStatus,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.auth import UserOut
 
@@ -28,6 +28,17 @@ class Page(BaseModel, Generic[T]):
 
 class AnswersIn(BaseModel):
     answers: list[Answer]
+
+
+class QuestionIn(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("question")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Câu hỏi không được để trống")
+        return value.strip()
 
 
 class ReviewIn(BaseModel):
@@ -74,3 +85,5 @@ class SessionOut(SessionSummary):
     reviewed_at: datetime | None = None
     disclaimer: str
     reminders: list[ReminderOut] = Field(default_factory=list)
+    trace_id: str | None = None
+    trace_events: list[dict[str, str | int | bool]] = Field(default_factory=list)

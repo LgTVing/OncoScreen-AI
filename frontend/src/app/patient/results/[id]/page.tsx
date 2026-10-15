@@ -7,6 +7,7 @@ import { Disclaimer } from "@/components/Disclaimer";
 import { RedFlagAlert } from "@/components/RedFlagAlert";
 import { PlanTable } from "@/components/PlanTable";
 import { SessionStatusBadge } from "@/components/SessionStatusBadge";
+import { PatientQuestionBox } from "@/components/PatientQuestionBox";
 
 /**
  * Màn kết quả — rẽ nhánh theo status:
@@ -188,6 +189,14 @@ export default function ResultPage({ params }: { params: { id: string } }) {
             <PlanTable plan={s.final_plan} />
           </section>
 
+          {s.doctor_note && (
+            <section className="card-padded text-sm text-slate-700">
+              <strong>Ghi chú của bác sĩ:</strong> {s.doctor_note}
+            </section>
+          )}
+
+          <PatientQuestionBox sessionId={s.id} />
+
           {/* Reviewed by */}
           {s.reviewed_by && (
             <p className="text-xs text-slate-500 text-right">
@@ -208,6 +217,19 @@ export default function ResultPage({ params }: { params: { id: string } }) {
               </Link>
             </section>
           )}
+        </div>
+      )}
+
+      {s.status === "approved" && !s.final_plan && (
+        <div className="space-y-5">
+          <section className="card-padded space-y-3">
+            <h2 className="font-semibold text-slate-800">Bác sĩ đã xem xét phiên đánh giá</h2>
+            <p className="text-sm text-slate-700">
+              Chưa đủ tài liệu phù hợp để kết luận hoặc lập kế hoạch tầm soát tự động.
+            </p>
+            {s.doctor_note && <p className="text-sm text-slate-700"><strong>Ghi chú của bác sĩ:</strong> {s.doctor_note}</p>}
+          </section>
+          <PatientQuestionBox sessionId={s.id} />
         </div>
       )}
 

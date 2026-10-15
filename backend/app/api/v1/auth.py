@@ -9,6 +9,8 @@ router = APIRouter()
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterIn, db: DB):
+    if body.role != "patient":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Tài khoản bác sĩ do quản trị viên cấp")
     if auth_service.get_by_email(db, body.email):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Email đã tồn tại")
     return auth_service.create_user(db, body)

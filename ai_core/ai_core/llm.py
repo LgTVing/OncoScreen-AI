@@ -16,10 +16,11 @@ def get_chat_model() -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
 
         return ChatAnthropic(model=settings.llm_model, api_key=settings.llm_api_key, max_tokens=4096)
-    if provider == "openai":
+    if provider in {"openai", "openrouter"}:
         from langchain_openai import ChatOpenAI  # pip install -e ".[openai]"
 
-        return ChatOpenAI(model=settings.llm_model, api_key=settings.llm_api_key)
+        options = {"base_url": "https://openrouter.ai/api/v1"} if provider == "openrouter" else {}
+        return ChatOpenAI(model=settings.llm_model, api_key=settings.llm_api_key, temperature=0, **options)
     if provider == "ollama":
         from langchain_ollama import ChatOllama  # pip install -e ".[ollama]"
 

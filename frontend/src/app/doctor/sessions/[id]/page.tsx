@@ -36,6 +36,10 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
       setError("Từ chối bắt buộc phải ghi lý do.");
       return;
     }
+    if (action === "approve" && !plan && !note.trim()) {
+      setError("Chưa có kế hoạch do thiếu nguồn. Vui lòng ghi chú kết luận của bác sĩ trước khi xác nhận.");
+      return;
+    }
     setError("");
     setActing(action);
     try {
@@ -158,6 +162,15 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
       )}
 
       {/* Draft Plan — editable only for pending_review */}
+      {session.status === "pending_review" && !plan && (
+        <section className="card-padded border-amber-200 bg-amber-50 space-y-2">
+          <h2 className="font-semibold text-amber-900">Chưa đủ tài liệu để lập kế hoạch</h2>
+          <p className="text-sm text-amber-800">
+            Agent đã đi qua bước truy xuất nhưng không có nguồn phù hợp. Bác sĩ có thể xác nhận thiếu căn cứ
+            với ghi chú cho bệnh nhân, hoặc từ chối phiên để thu thập thêm thông tin.
+          </p>
+        </section>
+      )}
       {plan && (
         <section className="card-padded space-y-3">
           <h2 className="font-semibold text-slate-800 flex items-center gap-2">
@@ -171,6 +184,21 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
             editable={session.status === "pending_review"}
             onChange={setPlan}
           />
+        </section>
+      )}
+
+      {session.trace_id && (
+        <section className="card-padded space-y-2 text-sm">
+          <h2 className="font-semibold text-slate-800">Dấu vết xử lý</h2>
+          <p className="font-mono text-xs text-slate-500">{session.trace_id}</p>
+          <ol className="flex flex-wrap gap-2">
+            {(session.trace_events ?? []).map((event, index) => (
+              <li key={index} className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                {String(event.node)} · {String(event.duration_ms ?? 0)} ms
+                {event.source_count !== undefined ? ` · ${event.source_count} nguồn` : ""}
+              </li>
+            ))}
+          </ol>
         </section>
       )}
 
@@ -238,7 +266,7 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
               className="btn-primary flex items-center gap-2"
             >
               {acting === "approve" ? <span className="spinner h-4 w-4" /> : "✅"}
-              {acting === "approve" ? "Đang phê duyệt…" : "Phê duyệt kế hoạch"}
+              {acting === "approve" ? "Đang xác nhận…" : plan ? "Phê duyệt kế hoạch" : "Xác nhận thiếu căn cứ"}
             </button>
             <button
               id="btn-reject"
@@ -251,7 +279,7 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
             </button>
           </div>
           <p className="text-xs text-slate-400">
-            Phê duyệt sẽ gửi kế hoạch tầm soát đến bệnh nhân và tạo lịch nhắc tự động.
+            Chỉ kế hoạch có ngày tầm soát đã xác nhận mới tạo lịch nhắc. Trường hợp thiếu căn cứ sẽ gửi ghi chú của bác sĩ.
           </p>
         </section>
       )}

@@ -6,6 +6,7 @@ import logging
 from datetime import date
 
 from ai_core.schemas import CancerType, ScreeningPlan
+from ai_core.tools.booking import next_due_date
 from ai_core.tools.recall_reminder import build_reminder_message
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import HTTPException, status
@@ -26,6 +27,8 @@ _scheduler: BackgroundScheduler | None = None
 def create_reminders_for_plan(db: Session, session: ScreeningSession, plan: ScreeningPlan) -> list[Reminder]:
     out = []
     for item in plan.items:
+        if item.next_due is None:
+            continue
         r = Reminder(
             session_id=session.id,
             patient_id=session.patient_id,
@@ -54,10 +57,48 @@ def complete(db: Session, reminder_id: str, user: User, completed_at: date | Non
     r = db.get(Reminder, reminder_id)
     if not r or r.patient_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy nhắc lịch")
+    if r.status == "done":
+        return r
+    actual_date = completed_at or date.today()
+    if actual_date > date.today():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Ngày đã tầm soát không được ở tương lai")
     r.status = "done"
-    r.completed_at = completed_at or date.today()
+    r.completed_at = actual_date
     db.add(AuditLog(session_id=r.session_id, actor_id=user.id, action="reminder.complete", after={"id": r.id}))
-    # TODO(BE, nâng cao): tạo reminder kế tiếp = completed_at + interval_months (lấy từ final_plan)
+    session = db.get(ScreeningSession, r.session_id)
+    if session and session.final_plan:
+        plan = ScreeningPlan.model_validate(session.final_plan)
+        matching = [item for item in plan.items if item.cancer_type.value == r.cancer_type and item.method == r.method]
+        if len(matching) == 1:
+            due = next_due_date(actual_date, matching[0].interval_months)
+            exists = db.scalar(
+                select(Reminder).where(
+                    Reminder.session_id == r.session_id,
+                    Reminder.cancer_type == r.cancer_type,
+                    Reminder.method == r.method,
+                    Reminder.due_date == due,
+                    Reminder.id != r.id,
+                )
+            )
+            if not exists:
+                db.add(
+                    Reminder(
+                        session_id=r.session_id,
+                        patient_id=r.patient_id,
+                        cancer_type=r.cancer_type,
+                        method=r.method,
+                        due_date=due,
+                        status="scheduled",
+                    )
+                )
+                db.add(
+                    AuditLog(
+                        session_id=r.session_id,
+                        actor_id=user.id,
+                        action="reminder.next_scheduled",
+                        after={"due_date": due.isoformat(), "cancer_type": r.cancer_type},
+                    )
+                )
     db.commit()
     db.refresh(r)
     return r

@@ -13,7 +13,7 @@
 ## 1. Auth
 | Method | Path | Role | Body | Response |
 |---|---|---|---|---|
-| POST | `/auth/register` | public | `{ email, password, full_name, role: "patient"\|"doctor" }` | `201 UserOut` |
+| POST | `/auth/register` | public | `{ email, password, full_name, role: "patient" }` | `201 UserOut`; role `doctor` trả 403 |
 | POST | `/auth/login` | public | `{ email, password }` | `{ access_token, token_type:"bearer", user: UserOut }` |
 | GET | `/auth/me` | any | — | `UserOut` |
 
@@ -37,6 +37,7 @@ PatientProfileOut = PatientProfileIn & { user_id, lifestyle_score:number|null, u
 | GET | `/sessions` | patient | `?status=` | `Page<SessionSummary>` (chỉ của mình) |
 | GET | `/sessions/{id}` | patient/doctor | — | `SessionOut` (xem quy tắc lộ dữ liệu bên dưới) |
 | POST | `/sessions/{id}/answers` | patient | `{ answers: [{question_id, value}] }` | `SessionOut` — status có thể chuyển sang `red_flag` hoặc `pending_review` (409 nếu session không ở `collecting`) |
+| POST | `/sessions/{id}/questions` | patient sở hữu phiên đã duyệt | `{ question: string }` (1–1000 ký tự) | `QuestionAnswer` |
 
 ```
 SessionSummary = { id, patient_id, patient_name, status, created_at, updated_at, has_red_flag:boolean }
@@ -51,13 +52,17 @@ SessionOut = SessionSummary & {
   reviewed_by: UserOut | null,
   reviewed_at: string | null,
   disclaimer: string,                      // luôn có
-  reminders: ReminderOut[]                 // khi approved
+  reminders: ReminderOut[],                // khi approved
+  trace_id: string | null,                 // chỉ doctor
+  trace_events: {node:string,status:string,duration_ms?:number,source_count?:number,has_plan?:boolean}[] // chỉ doctor
 }
 ```
 
 **Quy tắc lộ dữ liệu (bắt buộc, test bắt buộc):**
 - role=patient: `draft_plan` luôn `null`; `final_plan`/`risk_assessment` chỉ khác `null` khi `status=approved`.
 - role=doctor: thấy tất cả.
+- Phiên `pending_review` có thể có `draft_plan=null` khi thiếu guideline phù hợp; bệnh nhân chỉ thấy trạng thái chờ. Phiên `approved` có thể có `final_plan=null` kèm ghi chú của bác sĩ.
+- `PlanItem.next_due` có thể `null`; lúc đó không tạo reminder.
 
 **Quy tắc gửi answers:**
 
@@ -72,6 +77,7 @@ SessionOut = SessionSummary & {
 |---|---|---|---|---|
 | GET | `/doctor/sessions` | doctor | `?status=pending_review&page=` | `Page<SessionSummary>` (tất cả bệnh nhân) |
 | GET | `/doctor/patients/{patient_id}` | doctor | — | `{ user: UserOut, profile: PatientProfileOut|null, sessions: SessionSummary[] }` |
+| GET | `/doctor/metrics` | doctor | — | `{ sessions: Record<string,number>, pending_without_plan:number, questions_asked:number }` |
 | POST | `/sessions/{id}/review` | doctor | `ReviewIn` | `SessionOut` (409 nếu status ≠ `pending_review`) |
 
 ```
@@ -81,12 +87,13 @@ ReviewIn = {
   note?: string                 // reject: bắt buộc
 }
 ```
-Approve → backend: `status=approved`, lưu `final_plan`, `doctor_id`, `reviewed_at`, ghi `audit_logs`, sinh `reminders`.
+Approve → backend: `status=approved`, lưu `final_plan` nếu có, `doctor_id`, `reviewed_at`, ghi `audit_logs`, sinh `reminders` chỉ cho item có ngày hẹn.
 
 **Quy tắc ReviewIn:**
 
 - `approve`: `final_plan` có thể bỏ trống để dùng nguyên `draft_plan`; nếu gửi lên thì phải
   đúng schema `ScreeningPlan` và vẫn phải có source cho từng item.
+- Nếu cả `draft_plan` và `final_plan` đều rỗng, bác sĩ có thể duyệt kết luận thiếu căn cứ nhưng bắt buộc ghi `note`; không tạo reminder.
 - `reject`: bắt buộc `note` không rỗng; không tạo reminder.
 - Review lại session không còn `pending_review` trả HTTP 409.
 
@@ -98,12 +105,19 @@ Approve → backend: `status=approved`, lưu `final_plan`, `doctor_id`, `reviewe
 | GET | `/doctor/reminders/due` | doctor | — | `ReminderOut[]` (tất cả reminders `due`) |
 
 `ReminderOut = { id, session_id, patient_id, cancer_type, method, due_date, status:"scheduled"|"due"|"done"|"skipped", completed_at, message }`
+Khi bệnh nhân hoàn thành một reminder, backend tính ngày của chu kỳ kế tiếp từ `completed_at` và `interval_months` trong kế hoạch đã duyệt, rồi tạo một reminder mới. Gọi hoàn thành lại cùng reminder không tạo trùng.
 
 ## 6. Education
 | Method | Path | Role | Response |
 |---|---|---|---|
 | GET | `/education` | any | `{ cancer_type, title }[]` |
 | GET | `/education/{cancer_type}` | any | `EducationContent` |
+
+## 6.1 Hỏi đáp bệnh nhân
+
+`POST /sessions/{id}/questions` chỉ cho bệnh nhân sở hữu phiên `approved`. Kết quả gồm `answer`, `sources`, `disclaimer`, `trace_id`, `insufficient_evidence`. Agent giải thích kế hoạch đã duyệt; khi không có căn cứ trả `insufficient_evidence=true`. Câu hỏi và câu trả lời không được lưu trong audit log; log chỉ ghi trace ID, số nguồn và cờ thiếu căn cứ.
+
+`POST /chat` cho bệnh nhân đã đăng nhập, không cần phiên tầm soát. Body: `{ question: string (1–1000 ký tự), cancer_type: CancerType, history: ChatTurn[] (tối đa 8 lượt) }`, trong đó `ChatTurn = { role: "user"|"assistant", content: string (1–1000 ký tự) }`. Response là `QuestionAnswer`. Chat chỉ trả lời kiến thức chung từ guideline đã biên tập; thiếu nguồn hoặc câu hỏi cần bác sĩ đánh giá trả `insufficient_evidence=true`. Lịch sử chat chỉ giữ ở trình duyệt đến khi tải lại trang; backend chỉ lưu metadata vào audit log, không lưu nội dung câu hỏi hoặc câu trả lời.
 
 ## 7. Health
 | GET | `/health` | public | `{ status:"ok", agent:"mock"|"real", db:"ok" }` |

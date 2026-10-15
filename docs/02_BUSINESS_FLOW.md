@@ -8,12 +8,12 @@
 | 2 | Patient | Bấm "Bắt đầu đánh giá" | BE `POST /sessions` → AI `get_questionnaire(profile)` | session `collecting`, trả bộ câu hỏi động |
 | 3 | Patient | Trả lời câu hỏi (có thể nhiều vòng) | BE `POST /sessions/{id}/answers` | lưu `answers` |
 | 4 | System | **Red-flag detector** chạy ngay trên mỗi lần nộp câu trả lời | AI `check_red_flags(answers)` | nếu có → `red_flag`, dừng; FE hiển thị cảnh báo đi khám chuyên khoa |
-| 5 | System | Không red-flag & đủ dữ liệu → chạy LangGraph: retrieve guideline (RAG) → recommend → draft | AI `run_screening(ctx)` | `draft_plan` + `risk_assessment`, session `pending_review` |
+| 5 | System | Không red-flag & đủ dữ liệu → chạy LangGraph: đánh giá sơ bộ → RAG → recommend → guardrail | AI `run_screening(ctx)` | `risk_assessment`, `draft_plan` có thể rỗng khi thiếu căn cứ, session `pending_review` |
 | 6 | Doctor | Vào dashboard, xem hàng chờ, mở phiên, xem draft + nguồn trích dẫn, **sửa / duyệt / từ chối** | FE `/doctor/*` → BE `POST /sessions/{id}/review` | `approved` (`final_plan`) hoặc `rejected` |
-| 7 | System | Khi approved: sinh `reminders` từ `final_plan.items[].next_due` | BE `hitl_service` → `scheduler` | bảng `reminders` |
+| 7 | System | Khi approved: sinh `reminders` cho item có `next_due` | BE `hitl_service` → `scheduler` | bảng `reminders` nếu bác sĩ đã xác nhận ngày |
 | 8 | Patient | Xem kết quả chính thức + disclaimer + nội dung giáo dục + lịch nhắc | FE `/patient/results/[id]` | — |
 | 9 | System | Scheduler quét reminders đến hạn → tạo thông báo (mô phỏng: ghi DB + hiển thị in-app) | BE `scheduler.py` | `reminders.status = due` |
-| 10 | Patient | Đánh dấu "đã tầm soát" | BE `POST /reminders/{id}/complete` | `done`, tính mốc tiếp theo (nâng cao) |
+| 10 | Patient | Đánh dấu "đã tầm soát" | BE `POST /reminders/{id}/complete` | `done`, tạo một reminder chu kỳ tiếp theo theo khoảng cách đã duyệt |
 
 ## Quy tắc nghiệp vụ quan trọng
 - **R1** Patient **không bao giờ** thấy `draft_plan`. API chỉ trả `final_plan` khi `status = approved`.
@@ -24,8 +24,8 @@
 - **R6** Ngôn ngữ trả lời của agent: tiếng Việt, giọng điệu bình tĩnh, không gây hoảng loạn.
 
 ## Ví dụ kịch bản demo (dùng cho báo cáo)
-1. **Nữ 45 tuổi, mẹ bị ung thư vú** → không red-flag → draft: nhũ ảnh hàng năm từ 40, cân nhắc MRI; bác sĩ duyệt → reminder.
-2. **Nam 55 tuổi, hút thuốc 30 gói-năm** → draft: LDCT phổi hàng năm + nội soi đại tràng; bác sĩ sửa khoảng cách → approved.
+1. **Nữ 45 tuổi, mẹ bị ung thư vú** → không red-flag → agent thật có thể không có guideline phù hợp với nhóm nguy cơ tăng; bác sĩ xem hồ sơ và xác nhận thiếu căn cứ hoặc bổ sung kế hoạch có nguồn.
+2. **Nam 55 tuổi, hút thuốc 30 gói-năm** → nếu chưa ingest guideline phổi, agent không tự lập lịch LDCT; bác sĩ xem cảnh báo thiếu nguồn. Chế độ mock vẫn có bản nháp minh họa để thử thao tác sửa và duyệt.
 3. **Bất kỳ ai khai "sờ thấy khối u ở vú"** → red-flag → ngắt, cảnh báo đi khám ngay, không có plan.
 
 ## Sequence diagram (một phiên đầy đủ)

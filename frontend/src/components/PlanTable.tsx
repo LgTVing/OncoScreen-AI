@@ -88,12 +88,12 @@ export function PlanTable({
                     <input
                       id={`plan-next-due-${i}`}
                       type="date"
-                      value={it.next_due}
-                      onChange={(e) => updateItem(i, { next_due: e.target.value })}
+                      value={it.next_due ?? ""}
+                      onChange={(e) => updateItem(i, { next_due: e.target.value || null })}
                       className="input text-sm"
                     />
                   ) : (
-                    it.next_due
+                    it.next_due ?? "Chưa xác định"
                   )}
                 </td>
 
@@ -174,12 +174,12 @@ export function PlanTable({
                 {editable ? (
                   <input
                     type="date"
-                    value={it.next_due}
-                    onChange={(e) => updateItem(i, { next_due: e.target.value })}
+                    value={it.next_due ?? ""}
+                    onChange={(e) => updateItem(i, { next_due: e.target.value || null })}
                     className="input text-sm"
                   />
                 ) : (
-                  <span>{it.next_due}</span>
+                  <span>{it.next_due ?? "Chưa xác định"}</span>
                 )}
               </div>
             </div>

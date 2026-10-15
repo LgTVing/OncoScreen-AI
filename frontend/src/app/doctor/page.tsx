@@ -10,6 +10,11 @@ export default function DoctorDashboard() {
   const [status, setStatus] = useState<SessionStatus | "">("");
   const [items, setItems] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState<{ sessions: Record<string, number>; pending_without_plan: number; questions_asked: number } | null>(null);
+
+  useEffect(() => {
+    api.getDoctorMetrics().then(setMetrics).catch(console.error);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -37,6 +42,13 @@ export default function DoctorDashboard() {
       </div>
 
       {/* Filter tabs */}
+      {metrics && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="card-padded text-sm">Chờ duyệt: <strong>{metrics.sessions.pending_review ?? 0}</strong></div>
+          <div className="card-padded text-sm">Thiếu nguồn: <strong>{metrics.pending_without_plan}</strong></div>
+          <div className="card-padded text-sm">Câu hỏi đã gửi: <strong>{metrics.questions_asked}</strong></div>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
         {tabs.map((t) => (
           <button

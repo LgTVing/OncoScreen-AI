@@ -4,12 +4,15 @@
  */
 import type {
   AnswersIn,
+  ChatIn,
+  CancerType,
   EducationContent,
   LoginIn,
   Page,
   PatientDetail,
   PatientProfileIn,
   PatientProfileOut,
+  QuestionAnswer,
   RegisterIn,
   ReminderOut,
   ReviewIn,
@@ -72,8 +75,18 @@ export const api = {
   getSession: (id: string) => (USE_MOCK ? mock.getSession(id) : request<SessionOut>(`/sessions/${id}`)),
   submitAnswers: (id: string, b: AnswersIn) =>
     USE_MOCK ? mock.submitAnswers(id, b) : request<SessionOut>(`/sessions/${id}/answers`, { method: "POST", body: JSON.stringify(b) }),
+  askQuestion: (id: string, question: string) =>
+    USE_MOCK
+      ? mock.askQuestion(id, question)
+      : request<QuestionAnswer>(`/sessions/${id}/questions`, { method: "POST", body: JSON.stringify({ question }) }),
+  chat: (body: ChatIn) =>
+    USE_MOCK ? mock.chat(body) : request<QuestionAnswer>("/chat", { method: "POST", body: JSON.stringify(body) }),
 
   // doctor
+  getDoctorMetrics: () =>
+    USE_MOCK
+      ? mock.getDoctorMetrics()
+      : request<{ sessions: Record<string, number>; pending_without_plan: number; questions_asked: number }>("/doctor/metrics"),
   listAllSessions: (status?: string, page = 1) =>
     USE_MOCK ? mock.listSessions(status) : request<Page<SessionSummary>>(`/doctor/sessions${qs({ status, page })}`),
   getPatientDetail: (id: string) => (USE_MOCK ? mock.getPatientDetail(id) : request<PatientDetail>(`/doctor/patients/${id}`)),
@@ -86,5 +99,7 @@ export const api = {
     USE_MOCK ? mock.completeReminder(id) : request<ReminderOut>(`/reminders/${id}/complete`, { method: "POST", body: "{}" }),
 
   // education
+  listEducationTopics: () =>
+    USE_MOCK ? mock.listEducationTopics() : request<Array<{ cancer_type: CancerType; title: string }>>("/education"),
   getEducation: (type: string) => (USE_MOCK ? mock.getEducation(type) : request<EducationContent>(`/education/${type}`)),
 };

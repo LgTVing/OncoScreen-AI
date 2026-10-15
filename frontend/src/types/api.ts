@@ -111,7 +111,7 @@ export interface PlanItem {
   method: string;
   start_age: number | null;
   interval_months: number;
-  next_due: string; // YYYY-MM-DD
+  next_due: string | null; // YYYY-MM-DD; bác sĩ điền khi đã xác nhận lịch sử tầm soát
   rationale: string;
   sources: Source[];
   priority: number;
@@ -164,6 +164,24 @@ export interface SessionOut extends SessionSummary {
   reviewed_at: string | null;
   disclaimer: string;
   reminders: ReminderOut[];
+  trace_id?: string | null; // chỉ bác sĩ
+  trace_events?: Array<Record<string, string | number | boolean>>; // chỉ bác sĩ
+}
+export interface QuestionAnswer {
+  answer: string;
+  sources: Source[];
+  disclaimer: string;
+  trace_id: string;
+  insufficient_evidence: boolean;
+}
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+export interface ChatIn {
+  question: string;
+  cancer_type: CancerType;
+  history: ChatTurn[];
 }
 export interface AnswersIn {
   /** Có thể gửi từng phần; backend merge theo question_id. */

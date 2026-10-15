@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import uuid
+
 from ai_core.guardrails.disclaimer import DISCLAIMER_VI
-from ai_core.schemas import Answer, PatientContext
+from ai_core.schemas import Answer, PatientContext, QuestionAnswer, ScreeningPlan
 from ai_core.schemas import PatientProfile as AIProfile
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -70,6 +72,15 @@ def to_session_out(db: Session, s: ScreeningSession, viewer: User) -> SessionOut
     reviewer = db.get(User, s.doctor_id) if s.doctor_id else None
     reminders = db.scalars(select(Reminder).where(Reminder.session_id == s.id).order_by(Reminder.due_date)).all()
     base = to_summary(db, s)
+    trace_events: list[dict[str, str | int | bool]] = []
+    if is_doctor:
+        trace_log = db.scalar(
+            select(AuditLog)
+            .where(AuditLog.session_id == s.id, AuditLog.action == "agent.trace")
+            .order_by(AuditLog.created_at.desc())
+        )
+        if trace_log and trace_log.after:
+            trace_events = trace_log.after.get("events", [])
     return SessionOut(
         **base.model_dump(),
         questionnaire=s.questionnaire if s.status == "collecting" else None,
@@ -83,6 +94,8 @@ def to_session_out(db: Session, s: ScreeningSession, viewer: User) -> SessionOut
         reviewed_at=s.reviewed_at,
         disclaimer=DISCLAIMER_VI,
         reminders=[ReminderOut.model_validate(r) for r in reminders] if approved else [],
+        trace_id=s.trace_id if is_doctor else None,
+        trace_events=trace_events,
     )
 
 
@@ -120,6 +133,14 @@ async def submit_answers(db: Session, session_id: str, user: User, new_answers: 
     if rf.detected:
         s.status = "red_flag"
         s.red_flags = rf.model_dump(mode="json")
+        s.trace_id = f"red-flag-{uuid.uuid4().hex[:12]}"
+        _log(
+            db,
+            s,
+            user,
+            "agent.trace",
+            after={"trace_id": s.trace_id, "events": [{"node": "red_flag", "status": "ok"}]},
+        )
         db.commit()
         db.refresh(s)
         return to_session_out(db, s, user)
@@ -137,6 +158,7 @@ async def submit_answers(db: Session, session_id: str, user: User, new_answers: 
     # TODO(BE, nâng cao): ctx.prior_sessions_summary = tóm tắt phiên approved trước (memory)
     result = await agent_service.run_screening(ctx)
     s.trace_id = result.trace_id
+    _log(db, s, user, "agent.trace", after={"trace_id": result.trace_id, "events": result.trace_events})
     if result.status == "red_flag":
         s.status = "red_flag"
         s.red_flags = result.red_flag.model_dump(mode="json") if result.red_flag else None
@@ -154,6 +176,29 @@ def get_session_for(db: Session, session_id: str, viewer: User) -> SessionOut:
     if viewer.role == "patient" and s.patient_id != viewer.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy phiên")
     return to_session_out(db, s, viewer)
+
+
+async def ask_question(db: Session, session_id: str, user: User, question: str) -> QuestionAnswer:
+    s = _get_or_404(db, session_id)
+    if s.patient_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy phiên")
+    if s.status != "approved":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Chỉ có thể hỏi về kế hoạch đã được bác sĩ duyệt")
+    plan = ScreeningPlan.model_validate(s.final_plan) if s.final_plan else None
+    answer = await agent_service.answer_question(question, plan)
+    _log(
+        db,
+        s,
+        user,
+        "qa.ask",
+        after={
+            "trace_id": answer.trace_id,
+            "source_count": len(answer.sources),
+            "insufficient_evidence": answer.insufficient_evidence,
+        },
+    )
+    db.commit()
+    return answer
 
 
 def list_sessions(

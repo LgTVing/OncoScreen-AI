@@ -13,11 +13,14 @@ from ai_core.errors import AgentError
 from ai_core.schemas import (
     Answer,
     CancerType,
+    ChatTurn,
     EducationContent,
     PatientContext,
     PatientProfile,
+    QuestionAnswer,
     Questionnaire,
     RedFlagResult,
+    ScreeningPlan,
     ScreeningResult,
 )
 
@@ -33,10 +36,14 @@ class ScreeningAgentProtocol(Protocol):
 
     def run_screening(self, ctx: PatientContext) -> ScreeningResult: ...
     def get_education(self, cancer_type: CancerType) -> EducationContent: ...
+    def answer_question(self, question: str, approved_plan: ScreeningPlan | None) -> QuestionAnswer: ...
+    def answer_education_question(
+        self, question: str, cancer_type: CancerType, history: list[ChatTurn]
+    ) -> QuestionAnswer: ...
 
 
 class ScreeningAgent:
-    """Agent thật: LangGraph + RAG. TODO(Tuyền): hoàn thiện theo GUIDE_AI_CORE.md mục 1.3."""
+    """Agent thật: LangGraph + RAG, kết quả luôn chuyển tới bước bác sĩ duyệt."""
 
     name = "real"
 
@@ -73,6 +80,18 @@ class ScreeningAgent:
         from ai_core.tools.education import get_education_content
 
         return get_education_content(cancer_type)
+
+    def answer_question(self, question: str, approved_plan: ScreeningPlan | None) -> QuestionAnswer:
+        from ai_core.tools.patient_qa import answer_question
+
+        return answer_question(question, approved_plan)
+
+    def answer_education_question(
+        self, question: str, cancer_type: CancerType, history: list[ChatTurn]
+    ) -> QuestionAnswer:
+        from ai_core.tools.patient_qa import answer_education_question
+
+        return answer_education_question(question, cancer_type, history)
 
 
 _agent: ScreeningAgentProtocol | None = None

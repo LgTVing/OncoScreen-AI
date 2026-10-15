@@ -38,7 +38,24 @@ def review(db: Session, session_id: str, doctor: User, body: ReviewIn) -> Sessio
     # approve
     final = body.final_plan or (ScreeningPlan.model_validate(s.draft_plan) if s.draft_plan else None)
     if final is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Không có plan để duyệt")
+        if not body.note or not body.note.strip():
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Thiếu căn cứ để lập kế hoạch; bác sĩ cần ghi chú xác nhận"
+            )
+        s.final_plan = None
+        s.doctor_note = body.note.strip()
+        s.status = "approved"
+        db.add(
+            AuditLog(
+                session_id=s.id,
+                actor_id=doctor.id,
+                action="session.approve_no_plan",
+                after={"note": s.doctor_note},
+            )
+        )
+        db.commit()
+        db.refresh(s)
+        return to_session_out(db, s, doctor)
     try:
         validate_plan(final)  # bác sĩ sửa vẫn phải qua guardrail (nguồn, ngôn ngữ)
     except GuardrailViolation as exc:

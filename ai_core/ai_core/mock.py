@@ -14,10 +14,12 @@ from ai_core.guardrails.safety import validate_plan
 from ai_core.schemas import (
     Answer,
     CancerType,
+    ChatTurn,
     EducationContent,
     PatientContext,
     PatientProfile,
     PlanItem,
+    QuestionAnswer,
     Questionnaire,
     RedFlagResult,
     RiskAssessment,
@@ -27,6 +29,8 @@ from ai_core.schemas import (
     ScreeningResult,
     Source,
 )
+from ai_core.tools.education import get_education_content
+from ai_core.tools.patient_qa import needs_clinical_review
 from ai_core.tools.questionnaire import build_questionnaire, missing_required
 from ai_core.tools.red_flag_detector import detect_red_flags
 
@@ -245,6 +249,10 @@ class MockAgent:
             draft_plan=plan,
             disclaimer=DISCLAIMER_VI,
             trace_id=trace_id,
+            trace_events=[
+                {"node": name, "duration_ms": 0, "status": "ok"}
+                for name in ("collect", "red_flag", "assess_risk", "retrieve", "recommend", "guardrail")
+            ],
         )
 
     def get_education(self, cancer_type: CancerType) -> EducationContent:
@@ -256,6 +264,47 @@ class MockAgent:
             prevention_tips=["Không hút thuốc", "Vận động đều đặn", "Tầm soát đúng lịch"],
             body_md="Đây là nội dung minh hoạ của MockAgent, chưa phải tài liệu giáo dục lâm sàng.",
             sources=[source],
+        )
+
+    def answer_question(self, question: str, approved_plan: ScreeningPlan | None) -> QuestionAnswer:
+        sources = [source for item in approved_plan.items for source in item.sources] if approved_plan else []
+        if not sources:
+            return QuestionAnswer(
+                answer="Chưa đủ thông tin trong kế hoạch đã duyệt để trả lời. Vui lòng trao đổi với bác sĩ.",
+                disclaimer=DISCLAIMER_VI,
+                trace_id=f"qa-mock-{uuid.uuid4().hex[:8]}",
+                insufficient_evidence=True,
+            )
+        return QuestionAnswer(
+            answer="Đây là kế hoạch minh hoạ đã được bác sĩ duyệt. Hãy trao đổi với bác sĩ về câu hỏi cụ thể của bạn.",
+            sources=sources[:3],
+            disclaimer=DISCLAIMER_VI,
+            trace_id=f"qa-mock-{uuid.uuid4().hex[:8]}",
+        )
+
+    def answer_education_question(
+        self, question: str, cancer_type: CancerType, history: list[ChatTurn]
+    ) -> QuestionAnswer:
+        if needs_clinical_review(question):
+            return QuestionAnswer(
+                answer="Câu hỏi này cần bác sĩ đánh giá trực tiếp; trợ lý chỉ giải thích kiến thức tầm soát chung.",
+                disclaimer=DISCLAIMER_VI,
+                trace_id=f"chat-mock-{uuid.uuid4().hex[:8]}",
+                insufficient_evidence=True,
+            )
+        education = get_education_content(cancer_type)
+        if not education.sources:
+            return QuestionAnswer(
+                answer="Chưa đủ tài liệu cho chủ đề này để trả lời. Vui lòng trao đổi với bác sĩ.",
+                disclaimer=DISCLAIMER_VI,
+                trace_id=f"chat-mock-{uuid.uuid4().hex[:8]}",
+                insufficient_evidence=True,
+            )
+        return QuestionAnswer(
+            answer=f"(MOCK) Tài liệu hiện có: {education.sources[0].excerpt}",
+            sources=education.sources[:1],
+            disclaimer=DISCLAIMER_VI,
+            trace_id=f"chat-mock-{uuid.uuid4().hex[:8]}",
         )
 
 
