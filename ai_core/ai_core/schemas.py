@@ -162,7 +162,7 @@ class PlanItem(BaseModel):
     method: str = Field(description="vd. Nhũ ảnh (mammography)")
     start_age: int | None = None
     interval_months: int = Field(gt=0)
-    next_due: date
+    next_due: date | None = None
     rationale: str
     sources: list[Source] = Field(min_length=1, description="bắt buộc ≥1 nguồn — guardrail S2")
     priority: int = Field(default=1, ge=1, le=5, description="1 = ưu tiên cao nhất")
@@ -186,6 +186,7 @@ class ScreeningResult(BaseModel):
     red_flag: RedFlagResult | None = None
     disclaimer: str
     trace_id: str
+    trace_events: list[dict[str, str | int | bool]] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _validate_status_payload(self) -> ScreeningResult:
@@ -199,8 +200,8 @@ class ScreeningResult(BaseModel):
             if self.red_flag is None or not self.red_flag.detected:
                 raise ValueError("red_flag results require red_flag.detected=true")
         else:
-            if self.draft_plan is None or self.risk_assessment is None:
-                raise ValueError("pending_review results require risk_assessment and draft_plan")
+            if self.risk_assessment is None:
+                raise ValueError("pending_review results require risk_assessment")
             if self.red_flag is not None:
                 raise ValueError("pending_review results cannot contain red_flag")
         return self
@@ -213,3 +214,16 @@ class EducationContent(BaseModel):
     prevention_tips: list[str] = Field(default_factory=list)
     body_md: str = ""
     sources: list[Source] = Field(default_factory=list)
+
+
+class QuestionAnswer(BaseModel):
+    answer: str
+    sources: list[Source] = Field(default_factory=list)
+    disclaimer: str
+    trace_id: str
+    insufficient_evidence: bool = False
+
+
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=1000)

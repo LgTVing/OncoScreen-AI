@@ -3,10 +3,10 @@
 Repo: https://github.com/Tuyen230605/OncoScreen-AI
 
 > Hệ thống AI Agent đánh giá nguy cơ, khuyến nghị lịch tầm soát ung thư dựa trên guideline y khoa
-> (RAG), **bác sĩ phê duyệt trước khi trả kết quả (HITL)**. Chạy hoàn toàn local, phục vụ báo cáo học phần.
+> (RAG), **bác sĩ phê duyệt trước khi trả kết quả (HITL)**. Chế độ mock chạy local; chế độ agent thật gọi LLM từ nhà cung cấp được cấu hình.
 
 ⚠️ **AI KHÔNG chẩn đoán ung thư, KHÔNG diễn giải kết quả tầm soát.** Mọi khuyến nghị chỉ mang tính giáo dục / tham khảo và
-phải qua bác sĩ duyệt. Xem [docs/00_OVERVIEW.md](docs/00_OVERVIEW.md).
+phải qua bác sĩ duyệt. Chỉ dùng hồ sơ giả lập khi thử API LLM của bên thứ ba. Xem [docs/00_OVERVIEW.md](docs/00_OVERVIEW.md).
 
 ## Bắt đầu ở đâu?
 
@@ -32,30 +32,91 @@ phải qua bác sĩ duyệt. Xem [docs/00_OVERVIEW.md](docs/00_OVERVIEW.md).
 └── docker-compose.yml  # PostgreSQL 16 cho dev/demo
 ```
 
-## Chạy nhanh (dev)
+## Chạy dự án local (Linux/macOS)
+
+Cần Python 3.11+, Node.js/npm. Docker Compose chỉ cần nếu dùng PostgreSQL. Các lệnh dưới đây chạy FE + BE + AI Core ở chế độ mock; AI Core mock được gọi bên trong backend nên không cần bật server AI riêng.
+
+### 1. Tạo hoặc kích hoạt venv, cài dependencies và cấu hình
+
+Chạy từ thư mục gốc repo:
 
 ```bash
-# 1. Tạo môi trường Python và cài dependencies Python (chạy từ repo root)
-python3 -m venv .venv
-source .venv/bin/activate
+# Nếu đã setup AI Core trước đó, dùng lại venv hiện có; nếu chưa thì tạo venv ở repo root.
+if [ -x ai_core/.venv/bin/python ]; then
+  source ai_core/.venv/bin/activate
+else
+  python3 -m venv .venv
+  source .venv/bin/activate
+fi
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-
-# 2. Cấu hình + database
-cp .env.example .env            # điền LLM_API_KEY (DATABASE_URL mặc định trỏ tới container bên dưới)
-docker compose up -d            # PostgreSQL 16 tại localhost:5432
-
-# 3. Backend (tab mới; kích hoạt .venv trong tab đó)
-cd backend && uvicorn app.main:app --reload
-#    → http://localhost:8000/docs (Swagger)
-
-# 4. Frontend (tab mới)
-cd frontend && npm install && npm run dev
-#    → http://localhost:3000
+[ -f .env ] || cp .env.example .env
 ```
 
-`requirements.txt` cài dependencies cho cả Backend và AI Core. Chạy AI Core mock không cần `LLM_API_KEY`; chỉ cần kích hoạt `.venv` rồi chạy demo từ thư mục `ai_core/`. Embedding local cho RAG thật cần cài thêm extra `local-embed` trong `ai_core/`.
+Trong `.env`, giữ `USE_MOCK_AGENT=true` để backend gọi MockAgent. Frontend mặc định dùng API backend (`NEXT_PUBLIC_USE_MOCK_API=false`) và API URL localhost; không cần `LLM_API_KEY` cho luồng mock. Khi mở terminal mới, kích hoạt lại đúng venv đã dùng: `source ai_core/.venv/bin/activate` nếu dùng venv AI Core có sẵn, hoặc `source .venv/bin/activate` nếu đã tạo venv ở repo root. Từ thư mục `backend/`, thêm `../` trước đường dẫn venv.
 
-Không muốn chạy Docker? Đặt `DATABASE_URL=sqlite:///./dev.db` trong `.env` (chỉ cho dev nhanh; demo/nộp dùng PostgreSQL).
+### 2. Chạy database
+
+Mặc định `.env.example` dùng PostgreSQL. Nếu máy đã cài Docker Engine và Docker Compose:
+
+```bash
+docker compose up -d db
+```
+
+Nếu chưa có Docker, có thể dùng SQLite cho dev: sửa dòng `DATABASE_URL` trong `.env` thành `DATABASE_URL=sqlite:///./dev.db`, rồi bỏ qua bước Docker. SQLite sẽ được backend khởi tạo tự động.
+
+### 3. Chạy backend và tạo tài khoản demo
+
+Mở terminal mới, chạy từ repo root:
+
+```bash
+# Chạy từ repo root, kích hoạt đúng venv đã chọn ở bước 1.
+if [ -x ai_core/.venv/bin/python ]; then source ai_core/.venv/bin/activate; else source .venv/bin/activate; fi
+cd backend
+python scripts/seed.py
+uvicorn app.main:app --reload --port 8000
+```
+
+Script seed tạo schema và tài khoản demo nếu chưa có. Mở Swagger tại <http://localhost:8000/docs>.
+
+### 4. Chạy frontend
+
+Mở terminal thứ hai:
+
+```bash
+cd frontend
+npm ci                    # chỉ cần lần đầu hoặc khi package-lock.json thay đổi
+npm run dev
+```
+
+Mở <http://localhost:3000>. Frontend mặc định gọi API ở `http://localhost:8000/api/v1`; không cần tạo `.env` riêng cho frontend khi chạy local theo cấu hình mặc định.
+
+### 5. Tài khoản demo
+
+Mật khẩu chung: `123456`.
+
+| Vai trò | Email |
+|---|---|
+| Bác sĩ | `doctor@demo.vn` |
+| Bệnh nhân | `lan@demo.vn` |
+| Bệnh nhân | `hung@demo.vn` |
+
+### Chạy riêng AI Core mock (tùy chọn)
+
+Để xem JSON demo của AI Core mà không qua giao diện/API, chạy từ repo root trong terminal đã kích hoạt venv:
+
+```bash
+# Chạy từ repo root, kích hoạt đúng venv đã chọn ở bước 1.
+if [ -x ai_core/.venv/bin/python ]; then source ai_core/.venv/bin/activate; else source .venv/bin/activate; fi
+cd ai_core
+python -m ai_core.cli demo
+```
+
+Có thể thay case bằng `python -m ai_core.cli demo --case lung` hoặc `python -m ai_core.cli demo --case red-flag`. Đây là lệnh demo độc lập; khi chạy full-stack, backend gọi MockAgent trực tiếp.
+
+`requirements.txt` cài dependencies cho Backend, AI Core, local embedding và OpenRouter/OpenAI provider. Để dùng agent thật với API key đã thêm: đặt `USE_MOCK_AGENT=false` trong `.env`, chạy `cd ai_core && python scripts/ingest.py` nếu muốn dùng guideline mẫu, rồi khởi động lại backend. Để demo bằng hồ sơ giả trên OpenRouter mà không cần credit, đặt `LLM_MODEL=nvidia/nemotron-3-super-120b-a12b:free`; không dùng endpoint này cho dữ liệu bệnh nhân thật. Kiểm tra `http://localhost:8000/api/v1/health` báo `agent: "real"`. Khi chưa có nguồn RAG phù hợp, agent vẫn chạy hết các node và chuyển phiên sang bác sĩ với thông báo thiếu căn cứ; không tự sinh kế hoạch hay lịch nhắc. Sau khi bác sĩ duyệt, bệnh nhân có thể xem kết quả và hỏi trợ lý về kế hoạch đã duyệt. Xem [hướng dẫn tích hợp](docs/guides/GUIDE_INTEGRATION.md) để thử từng use case.
+
+Bệnh nhân có thể mở **Chat AI** trên thanh điều hướng để hỏi kiến thức tầm soát chung mà không cần phiên đã duyệt. Chat dùng guideline đã biên tập theo chủ đề; hiện mới có tài liệu mẫu ngắn về ung thư vú. Nếu thiếu nguồn hoặc câu hỏi cần đánh giá lâm sàng, trợ lý sẽ báo thiếu căn cứ và hướng dẫn hỏi bác sĩ. Hội thoại chỉ giữ trên trang đang mở.
 
 ## Nguyên tắc làm việc (bắt buộc)
 

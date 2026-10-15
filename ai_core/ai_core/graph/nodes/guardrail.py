@@ -12,5 +12,5 @@ from ai_core.guardrails.safety import validate_plan
 def run(state: AgentState) -> AgentState:
     plan = state.get("draft_plan")
     if plan is None:
-        raise RuntimeError("no draft_plan to validate")
+        return {"draft_plan": None}
     return {"draft_plan": validate_plan(plan)}

@@ -14,6 +14,8 @@ interface NavItem {
 const PATIENT_NAV: NavItem[] = [
   { href: "/patient", label: "Tổng quan", icon: "🏠" },
   { href: "/patient/profile", label: "Hồ sơ", icon: "👤" },
+  { href: "/patient/education", label: "Tài liệu", icon: "📚" },
+  { href: "/patient/chat", label: "Chat AI", icon: "💬" },
   { href: "/patient/reminders", label: "Nhắc lịch", icon: "🔔" },
 ];
 
@@ -76,14 +78,14 @@ export function RoleGuard({ role, children }: { role: Role; children: React.Reac
           </Link>
 
           {/* Nav links */}
-          <nav className="flex flex-1 items-center gap-1" aria-label="Điều hướng chính">
+          <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Điều hướng chính">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                     isActive
                       ? "bg-blue-50 text-blue-600"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -121,7 +123,7 @@ export function RoleGuard({ role, children }: { role: Role; children: React.Reac
 
       {/* ===== Footer ===== */}
       <footer className="border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-400">
-        OncoScreen AI — chỉ hỗ trợ tầm soát, <strong className="font-medium">không chẩn đoán bệnh</strong>. Mọi kết quả được bác sĩ phê duyệt trước khi hiển thị.
+        OncoScreen AI — chỉ hỗ trợ tầm soát, <strong className="font-medium">không chẩn đoán bệnh</strong>. Kế hoạch cá nhân cần bác sĩ phê duyệt; chat chỉ cung cấp kiến thức chung.
       </footer>
     </div>
   );

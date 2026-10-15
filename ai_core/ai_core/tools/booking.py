@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from calendar import monthrange
 from datetime import date, timedelta
 
 
@@ -9,6 +10,9 @@ def next_due_date(last_done: date | None, interval_months: int, today: date | No
     today = today or date.today()
     if last_done is None:
         return today + timedelta(days=30)  # lần đầu: hẹn trong ~1 tháng
-    # xấp xỉ tháng = 30 ngày; đủ cho mô phỏng
-    due = last_done + timedelta(days=30 * interval_months)
+    # Cộng tháng theo lịch để chu kỳ 12 tháng luôn đúng ngày/năm, kể cả năm nhuận.
+    month_index = last_done.year * 12 + last_done.month - 1 + interval_months
+    year, zero_based_month = divmod(month_index, 12)
+    month = zero_based_month + 1
+    due = date(year, month, min(last_done.day, monthrange(year, month)[1]))
     return max(due, today)

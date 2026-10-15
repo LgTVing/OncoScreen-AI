@@ -18,7 +18,7 @@ hoặc tiền sử ung thư vú — nhóm này cần kế hoạch riêng do bác
 
 ## Phương pháp & khoảng cách
 - Nhũ ảnh kỹ thuật số (2D) hoặc nhũ ảnh 3D (DBT).
-- Khoảng cách: 2 năm/lần. Với người có tiền sử gia đình bậc 1 (mẹ, chị em) mắc ung thư vú, nhiều hướng dẫn khác (ACS) đề nghị cân nhắc hàng năm và bắt đầu sớm hơn — bác sĩ quyết định.
+- Khoảng cách: 2 năm/lần. Bác sĩ cần đánh giá riêng các yếu tố nguy cơ và tiền sử tầm soát trước khi áp dụng.
 
-## Dấu hiệu cảnh báo
-Khối u ở vú hoặc nách, thay đổi da vú (lõm, sần vỏ cam), tụt núm vú, tiết dịch núm vú bất thường. Khi có các dấu hiệu này cần đi khám ngay, không chờ lịch tầm soát.
+## Giới hạn áp dụng
+Đây là khuyến nghị sàng lọc cho người không có triệu chứng; không dùng để diễn giải triệu chứng hoặc chẩn đoán.

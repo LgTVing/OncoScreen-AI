@@ -30,7 +30,18 @@ def client():
 
 
 def register_and_login(client: TestClient, email: str, role: str) -> dict:
-    client.post("/api/v1/auth/register", json={"email": email, "password": "123456", "full_name": email, "role": role})
+    if role == "doctor":
+        from app.database import SessionLocal
+        from app.schemas.auth import RegisterIn
+        from app.services import auth_service
+
+        with SessionLocal() as db:
+            auth_service.create_user(db, RegisterIn(email=email, password="123456", full_name=email, role="doctor"))
+    else:
+        client.post(
+            "/api/v1/auth/register",
+            json={"email": email, "password": "123456", "full_name": email, "role": role},
+        )
     tok = client.post("/api/v1/auth/login", json={"email": email, "password": "123456"}).json()["access_token"]
     return {"Authorization": f"Bearer {tok}"}
 

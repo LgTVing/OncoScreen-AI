@@ -26,7 +26,6 @@ export default function LoginPage() {
   const [regFullName, setRegFullName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
-  const [regRole, setRegRole] = useState<Role>("patient");
   const [regError, setRegError] = useState<string | null>(null);
   const [regLoading, setRegLoading] = useState(false);
   const [regSuccess, setRegSuccess] = useState(false);
@@ -55,7 +54,7 @@ export default function LoginPage() {
         email: regEmail,
         password: regPassword,
         full_name: regFullName,
-        role: regRole,
+        role: "patient",
       });
       setRegSuccess(true);
       // Tự chuyển sang tab đăng nhập, điền sẵn email
@@ -214,31 +213,7 @@ export default function LoginPage() {
                   onChange={(e) => setRegPassword(e.target.value)}
                 />
               </div>
-              <div>
-                <label className="label">Vai trò</label>
-                <div className="flex gap-3">
-                  {(["patient", "doctor"] as Role[]).map((r) => (
-                    <label
-                      key={r}
-                      className={`flex flex-1 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                        regRole === r
-                          ? "border-blue-500 bg-blue-50 text-blue-700"
-                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="role"
-                        value={r}
-                        checked={regRole === r}
-                        onChange={() => setRegRole(r)}
-                        className="sr-only"
-                      />
-                      <span>{r === "patient" ? "🏥 Bệnh nhân" : "🩺 Bác sĩ"}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              <p className="text-sm text-slate-500">Tài khoản mới được tạo cho bệnh nhân. Bác sĩ nhận tài khoản do quản trị viên cấp.</p>
               {regError && (
                 <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 fade-in">
                   {regError}

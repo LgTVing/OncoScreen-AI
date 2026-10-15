@@ -6,11 +6,14 @@ from ai_core.api import AgentError, get_agent
 from ai_core.schemas import (
     Answer,
     CancerType,
+    ChatTurn,
     EducationContent,
     PatientContext,
     PatientProfile,
+    QuestionAnswer,
     Questionnaire,
     RedFlagResult,
+    ScreeningPlan,
     ScreeningResult,
 )
 from fastapi import HTTPException, status
@@ -52,3 +55,13 @@ async def run_screening(ctx: PatientContext) -> ScreeningResult:
 
 async def get_education(cancer_type: CancerType) -> EducationContent:
     return await _call(_agent().get_education, cancer_type)
+
+
+async def answer_question(question: str, approved_plan: ScreeningPlan | None) -> QuestionAnswer:
+    return await _call(_agent().answer_question, question, approved_plan)
+
+
+async def answer_education_question(
+    question: str, cancer_type: CancerType, history: list[ChatTurn]
+) -> QuestionAnswer:
+    return await _call(_agent().answer_education_question, question, cancer_type, history)

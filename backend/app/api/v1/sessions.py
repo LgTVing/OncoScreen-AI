@@ -1,9 +1,10 @@
 """Sessions (patient) + review (doctor). Router mỏng — logic ở services/session_service & hitl_service."""
 
+from ai_core.schemas import QuestionAnswer
 from fastapi import APIRouter, Query, status
 
 from app.api.deps import DB, CurrentUser, Doctor, Patient
-from app.schemas.session import AnswersIn, Page, ReviewIn, SessionOut, SessionSummary
+from app.schemas.session import AnswersIn, Page, QuestionIn, ReviewIn, SessionOut, SessionSummary
 from app.services import hitl_service, session_service
 
 router = APIRouter()
@@ -29,6 +30,11 @@ def get_session(session_id: str, user: CurrentUser, db: DB):
 @router.post("/{session_id}/answers", response_model=SessionOut)
 async def submit_answers(session_id: str, body: AnswersIn, user: Patient, db: DB):
     return await session_service.submit_answers(db, session_id, user, body.answers)
+
+
+@router.post("/{session_id}/questions", response_model=QuestionAnswer)
+async def ask_question(session_id: str, body: QuestionIn, user: Patient, db: DB):
+    return await session_service.ask_question(db, session_id, user, body.question)
 
 
 @router.post("/{session_id}/review", response_model=SessionOut)

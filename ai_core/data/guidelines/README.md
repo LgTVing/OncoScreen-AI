@@ -110,7 +110,7 @@ Tên tài liệu, cơ quan phát hành, phiên bản/ngày, URL và ngày nhóm 
 
 Các giá trị `cancer_type`: `breast`, `cervical`, `colorectal`, `liver`, `lung`, `prostate`, `other`. `gender`: `female`, `male`, `any`. `risk_level`: `average`, `elevated`, `high`, `any`. `min_age`/`max_age` là số nguyên; chỉ đặt khoảng tuổi khi nguồn nêu rõ. `jurisdiction`, `publication_date`, `reviewed_on`, `document_type` và `license` là metadata bổ sung để truy vết.
 
-Phần nội dung dùng heading cấp hai `## ` vì ingest hiện chia **mỗi heading cấp hai thành một chunk**. Giữ mỗi mục ngắn, đủ ngữ cảnh, khoảng 300–500 token; mã hiện tại **chưa tự chia nhỏ chunk quá dài**. Không để bảng lớn, footnote hoặc điều kiện áp dụng tách khỏi khuyến nghị mà chúng giải thích.
+Phần nội dung dùng heading cấp hai `## ` vì ingest chia theo mục và tự chia tiếp mục dài thành chunk tối đa 400 từ, chồng lấp 40 từ. Giữ mỗi mục ngắn, đủ ngữ cảnh, khoảng 300–500 token. Không để bảng lớn, footnote hoặc điều kiện áp dụng tách khỏi khuyến nghị mà chúng giải thích.
 
 ## 6. Crawl không đồng nghĩa với ingest
 
@@ -148,4 +148,4 @@ Repo hiện **không có crawler web**. `ai_core/scripts/ingest.py` chỉ đọc
 - [ ] Có ngày truy cập/kiểm tra và ghi chú giấy phép; không commit nội dung không được phép phân phối.
 - [ ] Người khác đã rà lại nội dung y khoa trước khi dùng cho agent thật.
 
-**Giới hạn hiện tại:** retriever trong `ai_core/ai_core/rag/retriever.py` mới lọc `gender`; metadata tuổi/nguy cơ/loại ung thư chưa được áp dụng thành bộ lọc đầy đủ. Việc ingest thành công không đồng nghĩa tài liệu sẽ được chọn đúng cho hồ sơ cụ thể. Không dùng kết quả RAG hiện tại làm khuyến nghị y tế tự động; mọi plan vẫn phải được bác sĩ xem xét.
+**Giới hạn hiện tại:** retriever lọc giới trước truy vấn, sau đó kiểm tra tuổi và mức nguy cơ của kết quả. Kho guideline mới có một file mẫu ngắn; khi không có nguồn phù hợp, agent ghi thiếu căn cứ và không tạo plan. Việc ingest thành công không đồng nghĩa tài liệu đã đủ cho mọi hồ sơ; mọi plan vẫn phải được bác sĩ xem xét.

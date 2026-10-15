@@ -18,6 +18,14 @@ def test_wrong_password(client):
     assert client.post("/api/v1/auth/login", json={"email": "a@b.vn", "password": "xxxxxx"}).status_code == 401
 
 
+def test_public_cannot_register_doctor(client):
+    r = client.post(
+        "/api/v1/auth/register",
+        json={"email": "fake-doctor@b.vn", "password": "123456", "full_name": "Fake", "role": "doctor"},
+    )
+    assert r.status_code == 403
+
+
 def test_health(client):
     r = client.get("/api/v1/health")
     assert r.status_code == 200 and r.json()["agent"] == "mock"
