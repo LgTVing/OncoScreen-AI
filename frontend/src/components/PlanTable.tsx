@@ -44,7 +44,7 @@ export function PlanTable({
               <tr key={i} className="align-top hover:bg-slate-50/50 transition-colors">
                 {/* Cancer type — read only */}
                 <td className="px-4 py-3.5 whitespace-nowrap">
-                  <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-teal-800 border border-teal-200">
+                  <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-800 border border-teal-200">
                     {it.cancer_type}
                   </span>
                 </td>
@@ -128,7 +128,7 @@ export function PlanTable({
                             ) : (
                               <span className="font-medium text-slate-700">{s.title}</span>
                             )}
-                            {s.section ? ` · ${s.section}` : ""}
+                            {s.section ? ` (${s.section})` : ""}
                           </span>
                         </li>
                       ))}
@@ -146,14 +146,14 @@ export function PlanTable({
         {items.map((it, i) => (
           <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 text-sm shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-teal-800 border border-teal-200">
+              <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-800 border border-teal-200">
                 {it.cancer_type}
               </span>
               <span className="text-xs text-slate-500">{it.interval_months} tháng/lần</span>
             </div>
 
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Phương pháp:</p>
+              <p className="text-xs font-medium text-slate-500">Phương pháp:</p>
               {editable ? (
                 <input
                   type="text"
@@ -223,7 +223,7 @@ export function PlanTable({
                       ) : (
                         <span>{s.title}</span>
                       )}
-                      {s.section ? ` · ${s.section}` : ""}
+                      {s.section ? ` (${s.section})` : ""}
                     </span>
                   </li>
                 ))}

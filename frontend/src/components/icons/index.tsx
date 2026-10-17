@@ -28,6 +28,7 @@ export {
   Search,
   Calendar,
   ChevronRight,
+  ChevronDown,
   ExternalLink,
   Activity,
   HeartPulse,

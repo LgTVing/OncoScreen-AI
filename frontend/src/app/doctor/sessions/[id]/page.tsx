@@ -88,7 +88,7 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
   const boolLabel = (v: unknown) => {
     if (v === true || v === "true") return "Có";
     if (v === false || v === "false") return "Không";
-    return String(v ?? "—");
+    return String(v ?? "Chưa trả lời");
   };
 
   return (
@@ -105,7 +105,7 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
         <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2.5">
-              <h1 className="page-title">Hồ sơ thẩm định — {session.patient_name}</h1>
+              <h1 className="page-title">Hồ sơ thẩm định: {session.patient_name}</h1>
               <SessionStatusBadge status={session.status} />
             </div>
             <p className="page-subtitle">
@@ -141,7 +141,7 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
           <dl className="grid gap-3 sm:grid-cols-2 text-sm">
             {Object.entries(session.answers).map(([qid, val]) => (
               <div key={qid} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
-                <dt className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{qid}</dt>
+                <dt className="text-xs font-medium text-slate-500">{qid}</dt>
                 <dd className="mt-1 font-semibold text-slate-900">
                   {Array.isArray(val) ? val.join(", ") : boolLabel(val)}
                 </dd>
@@ -163,7 +163,7 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
 
           <div className="space-y-3">
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tổng hợp đánh giá:</p>
+              <p className="text-xs font-medium text-slate-600">Tổng hợp đánh giá</p>
               <p className="mt-1 text-sm text-slate-800 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-100">
                 {session.risk_assessment.overall_summary}
               </p>
@@ -171,7 +171,7 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
 
             {session.risk_assessment.factors.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Phân tầng nguy cơ theo cơ quan:</p>
+                <p className="text-xs font-medium text-slate-600">Phân tầng nguy cơ theo cơ quan</p>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {session.risk_assessment.factors.map((f, i) => (
                     <div
@@ -181,7 +181,7 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold uppercase tracking-wider">{f.cancer_type}</span>
+                        <span className="font-semibold text-slate-900">{f.cancer_type}</span>
                         <span className="font-semibold text-[11px]">{riskLevelLabel[f.level] ?? f.level}</span>
                       </div>
                       {f.reasons.length > 0 && (
@@ -232,23 +232,23 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-slate-500" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+              <h3 className="text-xs font-semibold text-slate-700">
                 Nhật ký thực thi AI Core (Trace Logs)
               </h3>
             </div>
-            <code className="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-              ID: {session.trace_id}
-            </code>
+            <span className="text-[11px] font-medium text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+              Trace: {session.trace_id}
+            </span>
           </div>
           <ol className="flex flex-wrap gap-2">
             {(session.trace_events ?? []).map((event, index) => (
-              <li key={index} className="rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-xs text-slate-700 shadow-2xs">
+              <li key={index} className="inline-flex items-center gap-2 rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-xs text-slate-700 shadow-2xs">
                 <span className="font-semibold text-slate-900">{String(event.node)}</span>
-                <span className="mx-1 text-slate-300">·</span>
-                <span className="text-indigo-600">{String(event.duration_ms ?? 0)} ms</span>
+                <span className="inline-block h-2.5 w-px bg-slate-200" aria-hidden="true" />
+                <span className="text-indigo-600 font-medium">{String(event.duration_ms ?? 0)} ms</span>
                 {event.source_count !== undefined && (
                   <>
-                    <span className="mx-1 text-slate-300">·</span>
+                    <span className="inline-block h-2.5 w-px bg-slate-200" aria-hidden="true" />
                     <span className="text-slate-500">{event.source_count} nguồn trích dẫn</span>
                   </>
                 )}
@@ -301,7 +301,7 @@ export default function DoctorSessionPage({ params }: { params: { id: string } }
           </div>
 
           <div>
-            <label htmlFor="doctor-note" className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
+            <label htmlFor="doctor-note" className="block text-xs font-semibold text-slate-700 mb-1.5">
               Ghi chú cho bệnh nhân <span className="text-slate-400 font-normal lowercase">(bắt buộc nếu từ chối)</span>
             </label>
             <textarea

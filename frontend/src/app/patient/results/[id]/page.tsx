@@ -154,10 +154,15 @@ export default function ResultPage({ params }: { params: { id: string } }) {
               <p className="font-semibold text-slate-900">Ghi chú từ Bác sĩ:</p>
               <p className="leading-relaxed">{s.doctor_note}</p>
               {s.reviewed_by && (
-                <p className="text-[11px] text-slate-400 pt-1">
-                  Người duyệt: BS. {s.reviewed_by.full_name}
-                  {s.reviewed_at && ` · ${new Date(s.reviewed_at).toLocaleDateString("vi-VN")}`}
-                </p>
+                <div className="text-[11px] text-slate-500 pt-1 flex items-center gap-1.5">
+                  <span>Người duyệt: BS. {s.reviewed_by.full_name}</span>
+                  {s.reviewed_at && (
+                    <>
+                      <span className="inline-block h-2 w-px bg-slate-300" aria-hidden="true" />
+                      <span>{new Date(s.reviewed_at).toLocaleDateString("vi-VN")}</span>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -196,7 +201,7 @@ export default function ResultPage({ params }: { params: { id: string } }) {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold uppercase tracking-wider">{f.cancer_type}</span>
+                        <span className="font-semibold text-slate-900">{f.cancer_type}</span>
                         <span className="font-medium text-[11px]">
                           {f.level === "high" ? "Nguy cơ cao" : f.level === "elevated" ? "Nguy cơ tăng" : "Nguy cơ trung bình"}
                         </span>
@@ -233,13 +238,18 @@ export default function ResultPage({ params }: { params: { id: string } }) {
 
           {/* Reviewed by */}
           {s.reviewed_by && (
-            <p className="text-xs text-slate-400 text-right flex items-center justify-end gap-1.5">
+            <div className="text-xs text-slate-500 text-right flex items-center justify-end gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
               <span>
                 Phê duyệt bởi <strong>BS. {s.reviewed_by.full_name}</strong>
-                {s.reviewed_at && ` · ${new Date(s.reviewed_at).toLocaleDateString("vi-VN")}`}
               </span>
-            </p>
+              {s.reviewed_at && (
+                <>
+                  <span className="inline-block h-2.5 w-px bg-slate-300" aria-hidden="true" />
+                  <span>{new Date(s.reviewed_at).toLocaleDateString("vi-VN")}</span>
+                </>
+              )}
+            </div>
           )}
 
           {/* Reminders CTA */}

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import type { ReminderOut } from "@/types/api";
 import {
@@ -115,6 +116,19 @@ export default function RemindersPage() {
               ? "Chưa có lịch nhắc nào được tạo. Bác sĩ sẽ thiết lập lịch nhắc sau khi phê duyệt kế hoạch tầm soát của bạn."
               : `Hiện tại không có mục tầm soát nào ở trạng thái "${STATUS_LABEL[filter] ?? filter}".`}
           </p>
+          {filter !== "all" ? (
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className="btn-secondary text-xs mt-2"
+            >
+              Hiển thị tất cả lịch nhắc
+            </button>
+          ) : (
+            <Link href="/patient" className="btn-secondary text-xs mt-2 inline-flex items-center gap-1.5">
+              <span>Về trang tổng quan</span>
+            </Link>
+          )}
         </div>
       ) : (
         <ul className="space-y-3">
@@ -139,11 +153,11 @@ export default function RemindersPage() {
                     )}
                   </div>
 
-                  <p className="text-xs text-slate-600">
-                    Phạm vi: <span className="font-semibold text-slate-900 uppercase">{r.cancer_type}</span>
-                    <span className="mx-1.5 text-slate-300">·</span>
-                    Ngày hẹn dự kiến: <span className="font-semibold text-slate-900">{r.due_date}</span>
-                  </p>
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-600">
+                    <span>Phạm vi: <strong className="font-semibold text-slate-900">{r.cancer_type}</strong></span>
+                    <span className="inline-block h-2.5 w-px bg-slate-300" aria-hidden="true" />
+                    <span>Ngày hẹn dự kiến: <strong className="font-semibold text-slate-900">{r.due_date}</strong></span>
+                  </div>
 
                   {r.message && (
                     <p className="text-xs text-slate-500 italic bg-white/60 p-2 rounded-lg border border-slate-100">

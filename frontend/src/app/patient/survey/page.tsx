@@ -114,7 +114,7 @@ function QuestionCard({
                 key={v}
                 type="button"
                 onClick={() => onChange(q.id, v === "true")}
-                className={`flex items-center justify-center gap-2.5 rounded-xl border-2 p-4 text-sm font-semibold transition-all ${
+                className={`flex cursor-pointer items-center justify-center gap-2.5 rounded-xl border-2 p-4 text-sm font-semibold transition-colors ${
                   isSelected
                     ? "border-teal-600 bg-teal-50/70 text-teal-900 shadow-sm ring-2 ring-teal-600/20"
                     : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
@@ -165,7 +165,7 @@ function QuestionCard({
                 key={o}
                 type="button"
                 onClick={() => onChange(q.id, o)}
-                className={`flex items-center justify-between rounded-xl border-2 p-4 text-sm font-medium transition-all text-left ${
+                className={`flex cursor-pointer items-center justify-between rounded-xl border-2 p-4 text-sm font-medium transition-colors text-left ${
                   isSelected
                     ? "border-teal-600 bg-teal-50/70 text-teal-950 shadow-sm ring-2 ring-teal-600/20"
                     : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
@@ -189,7 +189,7 @@ function QuestionCard({
                 key={o}
                 type="button"
                 onClick={() => onMultiToggle(q.id, o, !checked)}
-                className={`flex items-center justify-between rounded-xl border-2 p-4 text-sm font-medium transition-all text-left ${
+                className={`flex cursor-pointer items-center justify-between rounded-xl border-2 p-4 text-sm font-medium transition-colors text-left ${
                   checked
                     ? "border-teal-600 bg-teal-50/70 text-teal-950 shadow-sm ring-2 ring-teal-600/20"
                     : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
@@ -324,7 +324,7 @@ function Survey() {
     <div className="mx-auto max-w-2xl space-y-6">
       {/* Header */}
       <header className="space-y-1">
-        <div className="flex items-center gap-2 text-teal-700 text-xs font-semibold uppercase tracking-wider">
+        <div className="flex items-center gap-2 text-teal-800 text-xs font-medium">
           <ClipboardList className="h-4 w-4" />
           <span>Phiên khảo sát OncoScreen AI</span>
         </div>

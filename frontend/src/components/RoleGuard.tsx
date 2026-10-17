@@ -102,7 +102,7 @@ export function RoleGuard({ role, children }: { role: Role; children: React.Reac
               <span className="text-base font-bold leading-tight tracking-tight text-slate-900">
                 OncoScreen <span className={brandText}>AI</span>
               </span>
-              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+              <span className="text-[10px] font-medium text-slate-500">
                 {isDoctor ? "Cổng Bác sĩ" : "Hỗ trợ Tầm soát"}
               </span>
             </div>
@@ -158,10 +158,12 @@ export function RoleGuard({ role, children }: { role: Role; children: React.Reac
       <footer className="border-t border-slate-200/80 bg-white py-4 text-center text-xs text-slate-500">
         <div className="mx-auto max-w-6xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>
-            OncoScreen AI — Hỗ trợ đánh giá nguy cơ và lập kế hoạch tầm soát ung thư.
+            OncoScreen AI: Hệ thống hỗ trợ đánh giá nguy cơ và lập kế hoạch tầm soát ung thư.
           </span>
-          <span className="text-slate-400">
-            Không chẩn đoán trực tiếp · Kế hoạch cần bác sĩ xác nhận
+          <span className="text-slate-500 flex items-center gap-1.5">
+            <span>Không chẩn đoán trực tiếp</span>
+            <span className="inline-block h-2 w-px bg-slate-300" aria-hidden="true" />
+            <span>Kế hoạch cần bác sĩ xác nhận</span>
           </span>
         </div>
       </footer>

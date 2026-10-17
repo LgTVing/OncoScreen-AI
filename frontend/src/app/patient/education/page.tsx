@@ -100,8 +100,8 @@ export default function EducationPage() {
           <section className="card-padded space-y-5">
             <div className="border-b border-slate-100 pb-3">
               <h2 className="text-xl font-bold text-slate-900">{selected.title}</h2>
-              <span className="text-xs text-slate-400 mt-0.5 inline-block uppercase tracking-wider font-medium">
-                Chuyên đề: {selected.cancer_type}
+              <span className="text-xs text-slate-500 mt-1 inline-block font-medium">
+                Chuyên đề: <strong className="font-semibold text-slate-700">{selected.cancer_type}</strong>
               </span>
             </div>
 
@@ -131,7 +131,7 @@ export default function EducationPage() {
             {/* Prevention tips */}
             {selected.prevention_tips && selected.prevention_tips.length > 0 && (
               <div className="space-y-2 pt-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-xs font-semibold text-slate-700">
                   Lời khuyên phòng ngừa chủ động:
                 </p>
                 <ul className="grid sm:grid-cols-2 gap-2 text-xs text-slate-700">

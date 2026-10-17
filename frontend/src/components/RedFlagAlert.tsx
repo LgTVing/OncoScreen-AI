@@ -43,10 +43,9 @@ export function RedFlagAlert({ result }: { result: RedFlagResult }) {
                 <AlertTriangle className="h-3 w-3" />
                 {f.severity === "urgent" ? "Khám khẩn" : "Cần lưu ý"}
               </span>
-              <div className="min-w-0 flex-1">
-                <span className="font-semibold text-slate-900">{f.symptom}</span>
-                <span className="mx-1.5 text-slate-400">—</span>
-                <span className="text-slate-600">{f.advice}</span>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <p className="font-semibold text-slate-900">{f.symptom}</p>
+                <p className="text-xs text-slate-600">{f.advice}</p>
               </div>
             </li>
           ))}
@@ -56,7 +55,7 @@ export function RedFlagAlert({ result }: { result: RedFlagResult }) {
       <div className="pt-2">
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-red-700 transition-colors"
+          className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-red-700 transition-colors"
         >
           Hướng dẫn đặt lịch khám tại cơ sở y tế
         </button>

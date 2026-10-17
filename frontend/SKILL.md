@@ -32,11 +32,16 @@ Các dấu hiệu sau **PHẢI TRÁNH** vì chúng là đặc trưng của giao 
 | Nền gần đen + accent acid-green/vermilion đơn độc | Tông sáng, chuyên nghiệp, tĩnh lặng |
 | Thẻ bài đồng nhất `rounded-xl shadow-sm` khắp nơi | Phân cấp card: hero card lớn vs info card nhỏ, border-radius khác nhau theo vai trò |
 | Highlight một từ duy nhất trong tiêu đề bằng màu/đậm | Để cả tiêu đề một tone, dùng phân cấp cỡ chữ thay vì tô màu |
-| Nhãn ALL CAPS cho mọi thẻ | Dùng chữ thường hoặc Title Case, ALL CAPS chỉ cho badge trạng thái thực sự cần nổi bật |
+| Nhãn ALL CAPS (`uppercase tracking-wider`) rải rác | Dùng sentence-case hoặc Title Case (`font-medium text-slate-600`), ALL CAPS chỉ cho mã/badge chuyên biệt |
+| Chuỗi meta nối bằng middle dot (`'A · B · C'`) | Dùng divider tinh tế (`h-2.5 w-px bg-slate-200`) hoặc badge/tag riêng biệt |
+| Tiêu đề/nhãn ghép em dash có khoảng cách (`'WORD — fragment'`) | Dùng dấu hai chấm (`:`) hoặc phân tầng tiêu đề phụ (subtitle) |
+| Monospace (`font-mono`) dùng tùy tiện cho nhãn dữ liệu nhỏ | Dùng font sans chuẩn với pill tag hoặc badge rõ ràng |
+| Ký tự mũi tên (`→`, `›`, `↗`) gắn đuôi văn bản nút/link | Dùng icon SVG chuẩn (`<ChevronRight />`, `<ExternalLink />`) |
 | Số đánh thứ tự 01/02/03 cho nội dung không phải quy trình | Chỉ đánh số khi nội dung thực sự là trình tự (Bước khảo sát, Timeline tầm soát) |
-| Emoji hệ điều hành (`🏠`, `📋`, `✅`) trong navigation và nút bấm | SVG icon inline thuần túy, nét mảnh, đồng bộ |
-| `fade-in` + `translateY` trên mọi section | Chỉ dùng animation cho phản hồi hành động (mở panel, xác nhận, chuyển bước); tải trang KHÔNG cần animation rải rác |
-| `active:scale-95` trên mọi nút (hiệu ứng "nảy") | Chuyển trạng thái tinh tế: đổi background, đổi opacity, border-color; không scale |
+| Emoji hệ điều hành (`🏠`, `📋`, `✅`) trong navigation và nút bấm | SVG icon inline thuần túy (`lucide-react`), nét mảnh, đồng bộ |
+| `fade-in` + `translateY` trên mọi section | Chỉ dùng animation cho phản hồi hành động; tôn trọng `prefers-reduced-motion` |
+| `active:scale-95` trên mọi nút (hiệu ứng "nảy") | Chuyển trạng thái tinh tế: đổi background, opacity, border-color; không scale |
+| Empty state cụt (dead-end) không có nút điều hướng | Luôn kèm nút hành động (CTA) như "Bắt đầu khảo sát", "Hiển thị tất cả" |
 
 ### 2.2 Quy tắc Bảng màu 60-30-10
 
@@ -509,15 +514,22 @@ frontend/src/
 Trước khi submit code frontend, kiểm tra:
 
 - [ ] **Không có emoji** trong navigation, button, heading (grep cho các ký tự unicode emoji)
+- [ ] **Không dính "AI template tells"**:
+  - Không nối chuỗi meta bằng middle dot (`·`); dùng subtle divider hoặc badge.
+  - Không dùng `uppercase tracking-wider` rải rác trên label; dùng sentence-case.
+  - Không ghép nhãn dạng `'WORD — fragment'`; dùng dấu hai chấm hoặc subtitle.
+  - Không dùng `font-mono` tùy tiện cho nhãn dữ liệu nhỏ.
+  - Không gắn ký tự mũi tên (`→`, `›`, `↗`) vào văn bản; dùng icon SVG (`<ChevronRight />`, `<ExternalLink />`).
 - [ ] **Bảng màu đúng**: Không dùng blue-600 mặc định; Patient dùng teal, Doctor dùng indigo
 - [ ] **Tỷ lệ 60-30-10**: Không thêm màu mới ngoài hệ thống token
-- [ ] **Không animation tự phát**: Không `fade-in` class trên section containers
+- [ ] **Không animation tự phát**: Không `fade-in` class trên section containers; tôn trọng `prefers-reduced-motion`
 - [ ] **Không `active:scale-95`** trên nút bấm
+- [ ] **Touch target & Cursor**: Chiều cao nút tối thiểu 42-44px trên mobile; có `cursor-pointer` trên mọi phần tử bấm được
 - [ ] **Skeleton loading**: Có thay spinner cho trang có fetch data
-- [ ] **Empty state**: Có SVG icon + message, không emoji
-- [ ] **Focus visible**: Tab qua các phần tử tương tác, outline phải hiện
+- [ ] **Empty state actionable**: Có SVG icon + giải thích rõ ràng + nút hành động (CTA), không để màn hình cụt
+- [ ] **Focus visible**: Tab qua các phần tử tương tác, outline phải hiện rõ
 - [ ] **Responsive**: Kiểm tra trên 375px (mobile) và 1280px (desktop)
-- [ ] **Copy y tế**: Giọng điệu bình tĩnh, không gây hoảng loạn
+- [ ] **Copy y tế**: Giọng điệu bình tĩnh, không dọa dẫm, thông tin rõ ràng
 
 ---
 
@@ -528,7 +540,7 @@ Trước khi submit code frontend, kiểm tra:
 | `next` 14.x | Framework | ✅ Đã có |
 | `react` 18.x | UI Library | ✅ Đã có |
 | `tailwindcss` 3.x | Utility CSS | ✅ Đã có |
-| `lucide-react` | Icon library | 📦 Cần cài |
+| `lucide-react` | Icon library | ✅ Đã cài đặt |
 | `@fontsource/inter` | Font Inter local | 📦 Tùy chọn (hoặc dùng `next/font`) |
 | `clsx` hoặc `tailwind-merge` | Class name utils | 📦 Tùy chọn |
 

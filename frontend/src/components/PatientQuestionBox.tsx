@@ -80,7 +80,7 @@ export function PatientQuestionBox({ sessionId }: { sessionId: string }) {
                             ) : (
                               <span>{source.title}</span>
                             )}
-                            {source.section ? ` · ${source.section}` : ""}
+                            {source.section ? ` (${source.section})` : ""}
                           </li>
                         ))}
                       </ul>
@@ -101,7 +101,7 @@ export function PatientQuestionBox({ sessionId }: { sessionId: string }) {
 
       <form onSubmit={submit} className="space-y-3">
         <div>
-          <label htmlFor="patient-question" className="label text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <label htmlFor="patient-question" className="label text-xs font-semibold text-slate-700">
             Đặt câu hỏi làm rõ
           </label>
           <textarea

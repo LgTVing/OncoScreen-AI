@@ -183,10 +183,11 @@ export default function PatientDashboard() {
                   <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${r.status === "due" ? "bg-amber-100 text-amber-800" : "bg-teal-100 text-teal-800"}`}>
                     <Calendar className="h-4 w-4" />
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2">
                     <span className="font-semibold text-slate-900">{r.method}</span>
-                    <span className="mx-2 text-slate-300">·</span>
-                    <span className="text-slate-600 text-xs">{r.cancer_type}</span>
+                    <span className="inline-block rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600 font-medium">
+                      {r.cancer_type}
+                    </span>
                   </div>
                 </div>
                 <div className="text-right">

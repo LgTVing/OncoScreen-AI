@@ -13,6 +13,8 @@ import {
   FileText,
   AlertTriangle,
   ChevronRight,
+  ChevronDown,
+  ExternalLink,
   Info,
 } from "@/components/icons";
 
@@ -165,7 +167,7 @@ export default function PatientChatPage() {
       <div className="rounded-2xl border border-slate-200/90 bg-white shadow-sm overflow-hidden flex flex-col">
         {/* Topic Selector Pills */}
         <div className="border-b border-slate-200/80 bg-slate-50/60 p-4">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5">
+          <p className="text-xs font-medium text-slate-600 mb-2.5">
             Chọn chủ đề tầm soát
           </p>
           <div className="flex flex-wrap gap-2">
@@ -177,7 +179,7 @@ export default function PatientChatPage() {
                   type="button"
                   disabled={loading}
                   onClick={() => chooseTopic(key as CancerType)}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
                     isActive
                       ? "bg-teal-700 text-white shadow-sm"
                       : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:border-slate-300"
@@ -272,8 +274,9 @@ export default function PatientChatPage() {
                                 <FileText className="h-3.5 w-3.5 text-teal-600" />
                                 <span>{m.result.sources.length} tài liệu y khoa tham chiếu</span>
                               </span>
-                              <span className="text-[11px] text-teal-700">
-                                {expandedSources[idx] ? "Thu gọn ▲" : "Xem nguồn ▼"}
+                              <span className="text-[11px] text-teal-700 inline-flex items-center gap-1">
+                                <span>{expandedSources[idx] ? "Thu gọn" : "Xem nguồn"}</span>
+                                <ChevronDown className={`h-3 w-3 transition-transform ${expandedSources[idx] ? "rotate-180" : ""}`} />
                               </span>
                             </button>
 
@@ -293,9 +296,10 @@ export default function PatientChatPage() {
                                         href={s.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-teal-700 hover:underline text-[11px] inline-block font-medium"
+                                        className="text-teal-700 hover:underline text-[11px] inline-flex items-center gap-1 font-medium"
                                       >
-                                        Đọc tài liệu gốc ↗
+                                        <span>Đọc tài liệu gốc</span>
+                                        <ExternalLink className="h-2.5 w-2.5" />
                                       </a>
                                     )}
                                   </li>
@@ -359,6 +363,7 @@ export default function PatientChatPage() {
               disabled={loading || !question.trim()}
               className="btn-primary h-11 px-5 rounded-xl flex items-center gap-2 shrink-0"
               title="Gửi câu hỏi"
+              aria-label="Gửi câu hỏi"
             >
               <Send className="h-4 w-4" />
               <span className="hidden sm:inline">Gửi</span>

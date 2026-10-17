@@ -63,7 +63,7 @@ export default function DoctorDashboard() {
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="card-padded border-l-4 border-l-amber-500 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Chờ bác sĩ duyệt</p>
+              <p className="text-xs font-medium text-slate-500">Chờ bác sĩ duyệt</p>
               <p className="text-2xl font-bold text-slate-900 mt-1">{metrics.sessions.pending_review ?? 0}</p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
@@ -73,7 +73,7 @@ export default function DoctorDashboard() {
 
           <div className="card-padded border-l-4 border-l-slate-400 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Cần bổ sung nguồn</p>
+              <p className="text-xs font-medium text-slate-500">Cần bổ sung nguồn</p>
               <p className="text-2xl font-bold text-slate-900 mt-1">{metrics.pending_without_plan}</p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
@@ -83,7 +83,7 @@ export default function DoctorDashboard() {
 
           <div className="card-padded border-l-4 border-l-indigo-500 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Câu hỏi bệnh nhân gửi</p>
+              <p className="text-xs font-medium text-slate-500">Câu hỏi bệnh nhân gửi</p>
               <p className="text-2xl font-bold text-slate-900 mt-1">{metrics.questions_asked}</p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
@@ -100,7 +100,7 @@ export default function DoctorDashboard() {
             key={t.value}
             id={`tab-${t.value || "all"}`}
             onClick={() => setStatus(t.value)}
-            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+            className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
               status === t.value
                 ? "bg-indigo-600 text-white shadow-sm"
                 : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
@@ -124,7 +124,18 @@ export default function DoctorDashboard() {
             <ClipboardList className="h-6 w-6" />
           </div>
           <p className="font-semibold text-slate-800 text-base">Không có phiên nào</p>
-          <p className="text-xs text-slate-400">Không tìm thấy phiên đánh giá theo bộ lọc trạng thái đã chọn.</p>
+          <p className="text-xs text-slate-500 max-w-sm">
+            {status ? "Không tìm thấy phiên đánh giá theo bộ lọc trạng thái đã chọn." : "Hiện chưa có phiên đánh giá nào trong hệ thống."}
+          </p>
+          {status && (
+            <button
+              type="button"
+              onClick={() => setStatus("")}
+              className="btn-secondary text-xs mt-2"
+            >
+              Hiển thị tất cả phiên
+            </button>
+          )}
         </div>
       ) : (
         <ul className="space-y-2.5">

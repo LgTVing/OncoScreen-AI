@@ -271,7 +271,7 @@ export default function LoginPage() {
 
           {/* Quick Demo Access */}
           <div className="mt-8 border-t border-slate-100 pt-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 text-center mb-3">
+            <p className="text-xs font-medium text-slate-500 text-center mb-3">
               Tài khoản dùng thử nhanh
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
