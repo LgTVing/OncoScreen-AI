@@ -1,15 +1,55 @@
 import type { SessionStatus } from "@/types/api";
 
-const LABEL: Record<SessionStatus, [string, string]> = {
-  collecting: ["Đang khảo sát", "bg-slate-200 text-slate-800"],
-  red_flag: ["Cần khám sớm", "bg-red-100 text-red-800"],
-  pending_review: ["Chờ bác sĩ duyệt", "bg-yellow-100 text-yellow-800"],
-  approved: ["Đã duyệt", "bg-green-100 text-green-800"],
-  rejected: ["Bác sĩ từ chối", "bg-slate-300 text-slate-800"],
-  completed: ["Hoàn thành", "bg-blue-100 text-blue-800"],
+interface StatusConfig {
+  label: string;
+  badgeClass: string;
+  dotClass: string;
+}
+
+const CONFIG: Record<SessionStatus, StatusConfig> = {
+  collecting: {
+    label: "Đang khảo sát",
+    badgeClass: "bg-slate-100 text-slate-700 border border-slate-200",
+    dotClass: "bg-slate-400",
+  },
+  red_flag: {
+    label: "Cần khám sớm",
+    badgeClass: "bg-red-50 text-red-700 border border-red-200",
+    dotClass: "bg-red-500",
+  },
+  pending_review: {
+    label: "Chờ bác sĩ duyệt",
+    badgeClass: "bg-amber-50 text-amber-800 border border-amber-200",
+    dotClass: "bg-amber-500",
+  },
+  approved: {
+    label: "Đã duyệt",
+    badgeClass: "bg-emerald-50 text-emerald-800 border border-emerald-200",
+    dotClass: "bg-emerald-500",
+  },
+  rejected: {
+    label: "Bác sĩ từ chối",
+    badgeClass: "bg-slate-100 text-slate-600 border border-slate-200",
+    dotClass: "bg-slate-400",
+  },
+  completed: {
+    label: "Hoàn thành",
+    badgeClass: "bg-teal-50 text-teal-800 border border-teal-200",
+    dotClass: "bg-teal-500",
+  },
 };
 
 export function SessionStatusBadge({ status }: { status: SessionStatus }) {
-  const [text, cls] = LABEL[status];
-  return <span className={`rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{text}</span>;
+  const item = CONFIG[status] ?? {
+    label: status,
+    badgeClass: "bg-slate-100 text-slate-700 border border-slate-200",
+    dotClass: "bg-slate-400",
+  };
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${item.badgeClass}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${item.dotClass}`} aria-hidden="true" />
+      <span>{item.label}</span>
+    </span>
+  );
 }

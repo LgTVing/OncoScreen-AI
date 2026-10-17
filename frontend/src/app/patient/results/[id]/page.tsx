@@ -8,14 +8,26 @@ import { RedFlagAlert } from "@/components/RedFlagAlert";
 import { PlanTable } from "@/components/PlanTable";
 import { SessionStatusBadge } from "@/components/SessionStatusBadge";
 import { PatientQuestionBox } from "@/components/PatientQuestionBox";
+import {
+  ClipboardList,
+  Clock,
+  XCircle,
+  Activity,
+  CheckCircle2,
+  Bell,
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+} from "@/components/icons";
 
 /**
  * Màn kết quả — rẽ nhánh theo status:
- *  - collecting   → link tiếp tục khảo sát
- *  - red_flag     → RedFlagAlert, không hiển thị plan
+ *  - collecting     → link tiếp tục khảo sát
+ *  - red_flag       → RedFlagAlert, không hiển thị plan
  *  - pending_review → thông báo chờ + polling 10s
- *  - rejected     → thông báo bác sĩ chưa duyệt + ghi chú
- *  - approved     → risk assessment + PlanTable (final_plan)
+ *  - rejected       → thông báo bác sĩ chưa duyệt + ghi chú
+ *  - approved       → risk assessment + PlanTable (final_plan)
  */
 export default function ResultPage({ params }: { params: { id: string } }) {
   const [s, setS] = useState<SessionOut | null>(null);
@@ -27,7 +39,6 @@ export default function ResultPage({ params }: { params: { id: string } }) {
     }
     load();
 
-    // Poll mỗi 10s khi đang pending_review
     timerRef.current = setInterval(() => {
       setS((prev) => {
         if (prev?.status === "pending_review" || prev === null) {
@@ -40,10 +51,8 @@ export default function ResultPage({ params }: { params: { id: string } }) {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  // Dừng polling khi session không còn pending
   useEffect(() => {
     if (s && s.status !== "pending_review" && timerRef.current) {
       clearInterval(timerRef.current);
@@ -54,18 +63,22 @@ export default function ResultPage({ params }: { params: { id: string } }) {
   if (!s) {
     return (
       <div className="flex min-h-[300px] items-center justify-center">
-        <span className="spinner h-6 w-6 text-blue-500" aria-label="Đang tải…" />
+        <span className="spinner h-7 w-7 text-teal-700" aria-label="Đang tải kết quả…" />
       </div>
     );
   }
 
   return (
-    <div className="fade-in mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       {/* ===== Header ===== */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex-1">
-          <h1 className="page-title">Kết quả đánh giá</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200/80 pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="page-title">Kết quả thẩm định tầm soát</h1>
+            <SessionStatusBadge status={s.status} />
+          </div>
           <p className="page-subtitle">
+            Phiên ngày:{" "}
             {new Date(s.created_at).toLocaleDateString("vi-VN", {
               weekday: "long",
               year: "numeric",
@@ -74,22 +87,33 @@ export default function ResultPage({ params }: { params: { id: string } }) {
             })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {s.has_red_flag && <span className="badge bg-red-100 text-red-700">⚠ KHẨN</span>}
-          <SessionStatusBadge status={s.status} />
-        </div>
+
+        {s.has_red_flag && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700 self-start sm:self-auto border border-red-200">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            <span>Dấu hiệu cần khám sớm</span>
+          </span>
+        )}
       </div>
 
       {/* ===== Collecting: chưa hoàn thành ===== */}
       {s.status === "collecting" && (
-        <div className="card-padded space-y-3 text-center">
-          <p className="text-4xl">📋</p>
-          <p className="text-sm text-slate-700">Phiên khảo sát của bạn vẫn đang trong quá trình thu thập câu trả lời.</p>
+        <div className="card-padded space-y-4 text-center py-10">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+            <ClipboardList className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <p className="font-semibold text-slate-900 text-base">Khảo sát chưa hoàn tất</p>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              Phiên khảo sát của bạn vẫn đang dang dở. Hãy tiếp tục trả lời các câu hỏi để AI tổng hợp thông tin gửi bác sĩ.
+            </p>
+          </div>
           <Link
             href={`/patient/survey?session=${s.id}`}
-            className="btn-primary inline-flex"
+            className="btn-primary inline-flex items-center gap-2"
           >
-            Tiếp tục khảo sát →
+            <span>Tiếp tục làm khảo sát</span>
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       )}
@@ -101,78 +125,89 @@ export default function ResultPage({ params }: { params: { id: string } }) {
 
       {/* ===== Pending review: chờ bác sĩ ===== */}
       {s.status === "pending_review" && (
-        <div className="card-padded flex flex-col items-center gap-3 py-8 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-yellow-100">
-            <span className="text-2xl">⏳</span>
+        <div className="card-padded flex flex-col items-center gap-3.5 py-10 text-center border-l-4 border-l-amber-500">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+            <Clock className="h-6 w-6 animate-pulse" />
           </div>
-          <div>
-            <p className="font-semibold text-slate-800">Đang chờ bác sĩ xem xét</p>
-            <p className="mt-1 text-sm text-slate-600">
-              Bác sĩ sẽ xem xét và phê duyệt kết quả khuyến nghị trước khi bạn được xem.
-              <br />
-              Trang này tự động cập nhật mỗi 10 giây.
+          <div className="space-y-1.5 max-w-md">
+            <p className="font-semibold text-slate-900 text-base">Đang chờ Bác sĩ chuyên môn xem xét</p>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Theo quy trình an toàn y khoa, mọi kết quả và đề xuất tầm soát từ AI đều phải được bác sĩ trực tiếp kiểm tra và phê duyệt trước khi hiển thị cho bạn.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="spinner h-3 w-3 text-yellow-500" />
-            Đang chờ phê duyệt…
+          <div className="flex items-center gap-2 text-xs text-amber-800 bg-amber-50/80 px-3 py-1.5 rounded-full border border-amber-200">
+            <span className="spinner h-3 w-3 text-amber-600" />
+            <span>Trang tự động cập nhật trạng thái mỗi 10 giây</span>
           </div>
         </div>
       )}
 
       {/* ===== Rejected: bác sĩ chưa duyệt ===== */}
       {s.status === "rejected" && (
-        <div className="card-padded space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🚫</span>
-            <p className="font-semibold text-slate-800">Bác sĩ chưa phê duyệt kế hoạch này</p>
+        <div className="card-padded space-y-4 border-l-4 border-l-slate-400">
+          <div className="flex items-center gap-2 text-slate-800">
+            <XCircle className="h-5 w-5 text-red-500" />
+            <p className="font-semibold text-base">Bác sĩ chưa thể phê duyệt kế hoạch tự động này</p>
           </div>
           {s.doctor_note && (
-            <blockquote className="rounded-lg border-l-4 border-slate-300 bg-slate-50 p-3 text-sm italic text-slate-700">
-              &ldquo;{s.doctor_note}&rdquo;
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs sm:text-sm text-slate-800 space-y-1">
+              <p className="font-semibold text-slate-900">Ghi chú từ Bác sĩ:</p>
+              <p className="leading-relaxed">{s.doctor_note}</p>
               {s.reviewed_by && (
-                <footer className="mt-1 text-xs not-italic text-slate-500">
-                  — {s.reviewed_by.full_name}
-                  {s.reviewed_at && `, ${new Date(s.reviewed_at).toLocaleDateString("vi-VN")}`}
-                </footer>
+                <div className="text-[11px] text-slate-500 pt-1 flex items-center gap-1.5">
+                  <span>Người duyệt: BS. {s.reviewed_by.full_name}</span>
+                  {s.reviewed_at && (
+                    <>
+                      <span className="inline-block h-2 w-px bg-slate-300" aria-hidden="true" />
+                      <span>{new Date(s.reviewed_at).toLocaleDateString("vi-VN")}</span>
+                    </>
+                  )}
+                </div>
               )}
-            </blockquote>
+            </div>
           )}
-          <p className="text-sm text-slate-600">
-            Bạn có thể bắt đầu một phiên đánh giá mới hoặc liên hệ trực tiếp với cơ sở y tế.
+          <p className="text-xs text-slate-500">
+            Bạn có thể bắt đầu lại một phiên đánh giá mới với thông tin chi tiết hơn hoặc trao đổi trực tiếp với cơ sở y tế.
           </p>
-          <Link href="/patient" className="btn-secondary inline-flex">
-            ← Quay về tổng quan
+          <Link href="/patient" className="btn-secondary inline-flex items-center gap-2 text-xs">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Quay lại trang tổng quan</span>
           </Link>
         </div>
       )}
 
       {/* ===== Approved: hiển thị kết quả đầy đủ ===== */}
       {s.status === "approved" && s.final_plan && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {/* Risk assessment */}
           {s.risk_assessment && (
             <section className="card-padded space-y-3">
-              <h2 className="font-semibold text-slate-800">📊 Đánh giá nguy cơ</h2>
-              <p className="text-sm text-slate-700">{s.risk_assessment.overall_summary}</p>
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                <Activity className="h-4 w-4 text-teal-700" />
+                <h2 className="font-semibold text-slate-900 text-sm sm:text-base">Đánh giá nguy cơ ung thư</h2>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">{s.risk_assessment.overall_summary}</p>
               {s.risk_assessment.factors.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 pt-1">
                   {s.risk_assessment.factors.map((f) => (
                     <div
                       key={f.cancer_type}
-                      className={`rounded-lg border px-3 py-2 text-xs ${
+                      className={`rounded-xl border p-3 text-xs flex-1 min-w-[240px] space-y-1 ${
                         f.level === "high"
-                          ? "border-red-200 bg-red-50 text-red-700"
+                          ? "border-red-200 bg-red-50 text-red-900"
                           : f.level === "elevated"
-                          ? "border-yellow-200 bg-yellow-50 text-yellow-700"
-                          : "border-green-200 bg-green-50 text-green-700"
+                          ? "border-amber-200 bg-amber-50 text-amber-900"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-900"
                       }`}
                     >
-                      <span className="font-semibold uppercase">{f.cancer_type}</span>
-                      {" · "}
-                      {f.level === "high" ? "Nguy cơ cao" : f.level === "elevated" ? "Nguy cơ tăng" : "Nguy cơ trung bình"}
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-900">{f.cancer_type}</span>
+                        <span className="font-medium text-[11px]">
+                          {f.level === "high" ? "Nguy cơ cao" : f.level === "elevated" ? "Nguy cơ tăng" : "Nguy cơ trung bình"}
+                        </span>
+                      </div>
                       {f.reasons.length > 0 && (
-                        <ul className="mt-1 list-disc pl-3 text-[11px] opacity-80">
+                        <ul className="list-disc pl-3 text-[11px] opacity-85 space-y-0.5">
                           {f.reasons.map((r) => <li key={r}>{r}</li>)}
                         </ul>
                       )}
@@ -184,14 +219,18 @@ export default function ResultPage({ params }: { params: { id: string } }) {
           )}
 
           {/* Final plan */}
-          <section className="card-padded space-y-3">
-            <h2 className="font-semibold text-slate-800">📋 Kế hoạch tầm soát được phê duyệt</h2>
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-teal-700" />
+              <h2 className="font-semibold text-slate-900 text-base">Kế hoạch tầm soát đã được Bác sĩ phê duyệt</h2>
+            </div>
             <PlanTable plan={s.final_plan} />
           </section>
 
           {s.doctor_note && (
-            <section className="card-padded text-sm text-slate-700">
-              <strong>Ghi chú của bác sĩ:</strong> {s.doctor_note}
+            <section className="card-padded text-xs sm:text-sm text-slate-800 space-y-1 border-l-4 border-l-teal-600">
+              <p className="font-semibold text-slate-900">Lời dặn của Bác sĩ chuyên môn:</p>
+              <p className="leading-relaxed">{s.doctor_note}</p>
             </section>
           )}
 
@@ -199,21 +238,37 @@ export default function ResultPage({ params }: { params: { id: string } }) {
 
           {/* Reviewed by */}
           {s.reviewed_by && (
-            <p className="text-xs text-slate-500 text-right">
-              ✓ Đã duyệt bởi <strong>{s.reviewed_by.full_name}</strong>
-              {s.reviewed_at && ` · ${new Date(s.reviewed_at).toLocaleString("vi-VN")}`}
-            </p>
+            <div className="text-xs text-slate-500 text-right flex items-center justify-end gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+              <span>
+                Phê duyệt bởi <strong>BS. {s.reviewed_by.full_name}</strong>
+              </span>
+              {s.reviewed_at && (
+                <>
+                  <span className="inline-block h-2.5 w-px bg-slate-300" aria-hidden="true" />
+                  <span>{new Date(s.reviewed_at).toLocaleDateString("vi-VN")}</span>
+                </>
+              )}
+            </div>
           )}
 
           {/* Reminders CTA */}
           {s.reminders && s.reminders.length > 0 && (
-            <section className="card-padded bg-blue-50 border-blue-100 space-y-2">
-              <p className="text-sm font-medium text-blue-800">🔔 Lịch nhắc đã được tạo</p>
-              <p className="text-xs text-blue-700">
-                Hệ thống đã tạo {s.reminders.length} lịch nhắc tầm soát. Xem chi tiết trong trang Nhắc lịch.
-              </p>
-              <Link href="/patient/reminders" className="btn-primary inline-flex text-sm">
-                Xem lịch nhắc →
+            <section className="card-padded bg-teal-50/60 border border-teal-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-800">
+                  <Bell className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Lịch nhắc định kỳ đã được kích hoạt</p>
+                  <p className="text-xs text-slate-600">
+                    Hệ thống đã tự động lên lịch nhắc cho {s.reminders.length} danh mục tầm soát.
+                  </p>
+                </div>
+              </div>
+              <Link href="/patient/reminders" className="btn-primary shrink-0 text-xs flex items-center gap-1.5">
+                <span>Xem lịch nhắc</span>
+                <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </section>
           )}
@@ -222,24 +277,32 @@ export default function ResultPage({ params }: { params: { id: string } }) {
 
       {s.status === "approved" && !s.final_plan && (
         <div className="space-y-5">
-          <section className="card-padded space-y-3">
-            <h2 className="font-semibold text-slate-800">Bác sĩ đã xem xét phiên đánh giá</h2>
-            <p className="text-sm text-slate-700">
-              Chưa đủ tài liệu phù hợp để kết luận hoặc lập kế hoạch tầm soát tự động.
+          <section className="card-padded space-y-2 border-l-4 border-l-slate-400">
+            <h2 className="font-semibold text-slate-900 text-base">Bác sĩ đã xem xét phiên đánh giá</h2>
+            <p className="text-xs sm:text-sm text-slate-600">
+              Hiện chưa đủ tài liệu guideline chuẩn để đề xuất kế hoạch tự động cho trường hợp của bạn.
             </p>
-            {s.doctor_note && <p className="text-sm text-slate-700"><strong>Ghi chú của bác sĩ:</strong> {s.doctor_note}</p>}
+            {s.doctor_note && (
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mt-2 text-xs">
+                <strong>Ghi chú của bác sĩ:</strong> {s.doctor_note}
+              </div>
+            )}
           </section>
           <PatientQuestionBox sessionId={s.id} />
         </div>
       )}
 
-      {/* ===== Disclaimer bắt buộc ở mọi màn kết quả ===== */}
+      {/* ===== Disclaimer bắt buộc ===== */}
       <Disclaimer text={s.disclaimer} />
 
       {/* ===== Back link ===== */}
-      <div>
-        <Link href="/patient" className="text-sm text-slate-500 hover:text-slate-800 hover:underline">
-          ← Quay về tổng quan
+      <div className="pt-2">
+        <Link
+          href="/patient"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-teal-700 transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Quay về trang tổng quan</span>
         </Link>
       </div>
     </div>
