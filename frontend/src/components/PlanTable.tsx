@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { PlanItem, ScreeningPlan } from "@/types/api";
+import { FileText, Calendar, Clock, ExternalLink } from "@/components/icons";
 
 /**
  * Bảng kế hoạch tầm soát.
@@ -27,29 +28,29 @@ export function PlanTable({
   return (
     <div className="space-y-4">
       {/* Desktop table */}
-      <div className="overflow-x-auto hidden md:block">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hidden md:block">
         <table className="w-full text-sm border-collapse">
-          <thead className="bg-slate-50 text-left">
+          <thead className="bg-slate-50/80 text-left border-b border-slate-200">
             <tr>
-              <th className="p-2 font-semibold text-slate-700">Loại</th>
-              <th className="p-2 font-semibold text-slate-700">Phương pháp</th>
-              <th className="p-2 font-semibold text-slate-700">Chu kỳ</th>
-              <th className="p-2 font-semibold text-slate-700">Lần tới</th>
-              <th className="p-2 font-semibold text-slate-700">Lý do &amp; nguồn</th>
+              <th className="px-4 py-3 font-semibold text-slate-700">Loại ung thư</th>
+              <th className="px-4 py-3 font-semibold text-slate-700">Phương pháp khuyến nghị</th>
+              <th className="px-4 py-3 font-semibold text-slate-700">Chu kỳ</th>
+              <th className="px-4 py-3 font-semibold text-slate-700">Lần tới</th>
+              <th className="px-4 py-3 font-semibold text-slate-700">Cơ sở lý luận &amp; Guideline</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {items.map((it, i) => (
-              <tr key={i} className="border-t align-top hover:bg-slate-50/50">
+              <tr key={i} className="align-top hover:bg-slate-50/50 transition-colors">
                 {/* Cancer type — read only */}
-                <td className="p-2">
-                  <span className="inline-block rounded bg-blue-50 px-2 py-0.5 text-xs font-semibold uppercase text-blue-700">
+                <td className="px-4 py-3.5 whitespace-nowrap">
+                  <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-teal-800 border border-teal-200">
                     {it.cancer_type}
                   </span>
                 </td>
 
                 {/* Method */}
-                <td className="p-2">
+                <td className="px-4 py-3.5">
                   {editable ? (
                     <input
                       id={`plan-method-${i}`}
@@ -59,31 +60,31 @@ export function PlanTable({
                       className="input text-sm w-full"
                     />
                   ) : (
-                    it.method
+                    <span className="font-semibold text-slate-900">{it.method}</span>
                   )}
                 </td>
 
                 {/* Interval */}
-                <td className="p-2">
+                <td className="px-4 py-3.5 whitespace-nowrap">
                   {editable ? (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <input
                         id={`plan-interval-${i}`}
                         type="number"
                         min={1}
                         value={it.interval_months}
                         onChange={(e) => updateItem(i, { interval_months: Number(e.target.value) })}
-                        className="input text-sm w-20"
+                        className="input text-sm w-20 text-center"
                       />
                       <span className="text-slate-500 text-xs">tháng</span>
                     </div>
                   ) : (
-                    `${it.interval_months} tháng`
+                    <span className="text-slate-700">{it.interval_months} tháng</span>
                   )}
                 </td>
 
                 {/* Next due */}
-                <td className="p-2">
+                <td className="px-4 py-3.5 whitespace-nowrap">
                   {editable ? (
                     <input
                       id={`plan-next-due-${i}`}
@@ -93,38 +94,46 @@ export function PlanTable({
                       className="input text-sm"
                     />
                   ) : (
-                    it.next_due ?? "Chưa xác định"
+                    <span className={`inline-block font-medium ${it.next_due ? "text-slate-800" : "text-slate-400"}`}>
+                      {it.next_due ?? "Chưa xác định"}
+                    </span>
                   )}
                 </td>
 
                 {/* Rationale + Sources */}
-                <td className="p-2 max-w-xs">
+                <td className="px-4 py-3.5 max-w-sm space-y-2">
                   {editable ? (
                     <textarea
                       id={`plan-rationale-${i}`}
                       rows={3}
                       value={it.rationale}
                       onChange={(e) => updateItem(i, { rationale: e.target.value })}
-                      className="input text-sm w-full resize-y"
+                      className="input text-xs w-full resize-y"
                     />
                   ) : (
-                    <p>{it.rationale}</p>
+                    <p className="text-xs text-slate-700 leading-relaxed">{it.rationale}</p>
                   )}
-                  <ul className="mt-1 text-xs text-slate-500 space-y-0.5">
-                    {it.sources.map((s) => (
-                      <li key={s.doc_id}>
-                        📄{" "}
-                        {s.url ? (
-                          <a className="underline" href={s.url} target="_blank" rel="noreferrer">
-                            {s.title}
-                          </a>
-                        ) : (
-                          s.title
-                        )}
-                        {s.section ? ` · ${s.section}` : ""}
-                      </li>
-                    ))}
-                  </ul>
+
+                  {it.sources.length > 0 && (
+                    <ul className="text-[11px] text-slate-500 space-y-1 pt-1 border-t border-slate-100">
+                      {it.sources.map((s) => (
+                        <li key={s.doc_id} className="flex items-start gap-1">
+                          <FileText className="h-3 w-3 text-teal-600 shrink-0 mt-0.5" />
+                          <span>
+                            {s.url ? (
+                              <a className="text-teal-700 hover:underline font-medium inline-flex items-center gap-0.5" href={s.url} target="_blank" rel="noreferrer">
+                                {s.title}
+                                <ExternalLink className="h-2.5 w-2.5 inline" />
+                              </a>
+                            ) : (
+                              <span className="font-medium text-slate-700">{s.title}</span>
+                            )}
+                            {s.section ? ` · ${s.section}` : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </td>
               </tr>
             ))}
@@ -135,88 +144,100 @@ export function PlanTable({
       {/* Mobile card list */}
       <div className="space-y-3 md:hidden">
         {items.map((it, i) => (
-          <div key={i} className="rounded-lg border border-slate-200 p-3 space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="rounded bg-blue-50 px-2 py-0.5 text-xs font-semibold uppercase text-blue-700">
+          <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 text-sm shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-teal-800 border border-teal-200">
                 {it.cancer_type}
               </span>
+              <span className="text-xs text-slate-500">{it.interval_months} tháng/lần</span>
             </div>
+
             <div>
-              <span className="text-xs text-slate-500">Phương pháp: </span>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Phương pháp:</p>
               {editable ? (
                 <input
                   type="text"
                   value={it.method}
                   onChange={(e) => updateItem(i, { method: e.target.value })}
-                  className="input text-sm w-full mt-0.5"
+                  className="input text-sm w-full mt-1"
                 />
               ) : (
-                <span>{it.method}</span>
+                <p className="font-semibold text-slate-900 mt-0.5">{it.method}</p>
               )}
             </div>
-            <div className="flex gap-4">
+
+            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
               <div>
-                <span className="text-xs text-slate-500">Chu kỳ: </span>
+                <span className="text-xs text-slate-400">Chu kỳ:</span>
                 {editable ? (
                   <input
                     type="number"
                     min={1}
                     value={it.interval_months}
                     onChange={(e) => updateItem(i, { interval_months: Number(e.target.value) })}
-                    className="input text-sm w-20"
+                    className="input text-sm w-full mt-1"
                   />
                 ) : (
-                  <span>{it.interval_months} tháng</span>
+                  <p className="font-medium text-slate-700 mt-0.5">{it.interval_months} tháng</p>
                 )}
               </div>
               <div>
-                <span className="text-xs text-slate-500">Lần tới: </span>
+                <span className="text-xs text-slate-400">Ngày hẹn tới:</span>
                 {editable ? (
                   <input
                     type="date"
                     value={it.next_due ?? ""}
                     onChange={(e) => updateItem(i, { next_due: e.target.value || null })}
-                    className="input text-sm"
+                    className="input text-sm w-full mt-1"
                   />
                 ) : (
-                  <span>{it.next_due ?? "Chưa xác định"}</span>
+                  <p className="font-medium text-slate-700 mt-0.5">{it.next_due ?? "Chưa xác định"}</p>
                 )}
               </div>
             </div>
-            <div>
-              <span className="text-xs text-slate-500">Lý do: </span>
+
+            <div className="pt-1 border-t border-slate-100">
+              <span className="text-xs text-slate-400">Lý do y khoa:</span>
               {editable ? (
                 <textarea
                   rows={2}
                   value={it.rationale}
                   onChange={(e) => updateItem(i, { rationale: e.target.value })}
-                  className="input text-sm w-full mt-0.5 resize-y"
+                  className="input text-xs w-full mt-1 resize-y"
                 />
               ) : (
-                <span>{it.rationale}</span>
+                <p className="text-xs text-slate-700 mt-0.5 leading-relaxed">{it.rationale}</p>
               )}
             </div>
-            <ul className="text-xs text-slate-500 space-y-0.5">
-              {it.sources.map((s) => (
-                <li key={s.doc_id}>
-                  📄{" "}
-                  {s.url ? (
-                    <a className="underline" href={s.url} target="_blank" rel="noreferrer">
-                      {s.title}
-                    </a>
-                  ) : (
-                    s.title
-                  )}
-                  {s.section ? ` · ${s.section}` : ""}
-                </li>
-              ))}
-            </ul>
+
+            {it.sources.length > 0 && (
+              <ul className="text-[11px] text-slate-500 space-y-1 pt-1 border-t border-slate-100">
+                {it.sources.map((s) => (
+                  <li key={s.doc_id} className="flex items-start gap-1">
+                    <FileText className="h-3 w-3 text-teal-600 shrink-0 mt-0.5" />
+                    <span>
+                      {s.url ? (
+                        <a className="text-teal-700 hover:underline font-medium" href={s.url} target="_blank" rel="noreferrer">
+                          {s.title}
+                        </a>
+                      ) : (
+                        <span>{s.title}</span>
+                      )}
+                      {s.section ? ` · ${s.section}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         ))}
       </div>
 
       {plan.general_advice && (
-        <p className="text-sm text-slate-600 italic border-t border-slate-100 pt-3">{plan.general_advice}</p>
+        <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+          <strong className="text-slate-700 not-italic mr-1">Lời khuyên chung:</strong>
+          {plan.general_advice}
+        </p>
       )}
     </div>
   );

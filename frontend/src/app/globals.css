@@ -4,81 +4,106 @@
 
 @layer base {
   :root {
-    --color-primary: 220 90% 56%;
-    --color-success: 158 64% 42%;
-    --color-danger: 0 84% 60%;
-    --color-warning: 38 92% 50%;
+    --surface-primary: #FFFFFF;
+    --surface-secondary: #F8FAFC;
+    --surface-elevated: #FFFFFF;
+
+    --brand-50: #F0FDFA;
+    --brand-100: #CCFBF1;
+    --brand-500: #14B8A6;
+    --brand-600: #0D9488;
+    --brand-700: #0F766E;
+    --brand-800: #115E59;
+    --brand-900: #134E4A;
+
+    --doctor-50: #EEF2FF;
+    --doctor-500: #6366F1;
+    --doctor-600: #4F46E5;
+    --doctor-700: #4338CA;
+
+    --success: #059669;
+    --warning: #D97706;
+    --danger: #DC2626;
+    --danger-soft: #FEF2F2;
+    --info: #0284C7;
+
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --text-tertiary: #94A3B8;
+    --text-inverse: #FFFFFF;
+
+    --border-default: #E2E8F0;
+    --border-strong: #CBD5E1;
   }
 
   body {
-    @apply min-h-screen bg-slate-100 text-slate-800 antialiased;
-    font-family: system-ui, sans-serif;
+    @apply min-h-screen bg-slate-50 text-slate-800 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   *:focus-visible {
-    @apply outline-2 outline-offset-2 outline-blue-500;
+    @apply outline-2 outline-offset-2 outline-teal-600;
   }
 }
 
 @layer components {
   /* ===== Buttons ===== */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-blue-600 text-white shadow-sm hover:bg-blue-700 active:scale-95;
+    @apply btn bg-teal-700 text-white shadow-sm hover:bg-teal-800 active:opacity-90;
+  }
+  .btn-doctor {
+    @apply btn bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 active:opacity-90;
   }
   .btn-secondary {
-    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 active:scale-95;
+    @apply btn border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 active:opacity-90;
   }
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700 active:scale-95;
+    @apply btn bg-red-600 text-white hover:bg-red-700 active:opacity-90;
   }
   .btn-ghost {
-    @apply btn text-slate-500 hover:bg-slate-100 hover:text-slate-700;
+    @apply btn text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:opacity-90;
   }
 
   /* ===== Form inputs ===== */
   .input {
-    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400
-      transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20;
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400
+      transition-colors focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/20;
   }
   .input-error {
     @apply border-red-400 focus:border-red-500 focus:ring-red-500/20;
   }
   .label {
-    @apply mb-1 block text-sm font-medium text-slate-700;
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
   }
 
   /* ===== Cards ===== */
   .card {
-    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+    @apply rounded-xl border border-slate-200/80 bg-white;
   }
   .card-padded {
-    @apply card p-5;
+    @apply card p-5 sm:p-6;
   }
 
   /* ===== Badges ===== */
   .badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
 
   /* ===== Page shell ===== */
   .page-title {
-    @apply text-xl font-semibold text-slate-900;
+    @apply text-xl font-bold tracking-tight text-slate-900 sm:text-2xl;
   }
   .page-subtitle {
     @apply mt-1 text-sm text-slate-500;
   }
-}
 
-/* ===== Smooth transitions ===== */
-.fade-in {
-  animation: fadeIn 0.2s ease-out;
-}
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  /* ===== Skeletons ===== */
+  .skeleton {
+    @apply animate-pulse rounded bg-slate-200/80;
+  }
 }
 
 /* ===== Loading spinner ===== */

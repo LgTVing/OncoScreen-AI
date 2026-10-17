@@ -1,26 +1,36 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import type { Role } from "@/types/api";
 import { clearSession, getUser, homeFor } from "@/lib/auth";
+import {
+  LayoutDashboard,
+  UserCircle,
+  BookOpen,
+  MessageSquare,
+  Bell,
+  ClipboardList,
+  LogOut,
+  HeartPulse,
+} from "@/components/icons";
 
 interface NavItem {
   href: string;
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const PATIENT_NAV: NavItem[] = [
-  { href: "/patient", label: "Tổng quan", icon: "🏠" },
-  { href: "/patient/profile", label: "Hồ sơ", icon: "👤" },
-  { href: "/patient/education", label: "Tài liệu", icon: "📚" },
-  { href: "/patient/chat", label: "Chat AI", icon: "💬" },
-  { href: "/patient/reminders", label: "Nhắc lịch", icon: "🔔" },
+  { href: "/patient", label: "Tổng quan", icon: LayoutDashboard },
+  { href: "/patient/profile", label: "Hồ sơ", icon: UserCircle },
+  { href: "/patient/education", label: "Tài liệu", icon: BookOpen },
+  { href: "/patient/chat", label: "Chat AI", icon: MessageSquare },
+  { href: "/patient/reminders", label: "Nhắc lịch", icon: Bell },
 ];
 
 const DOCTOR_NAV: NavItem[] = [
-  { href: "/doctor", label: "Hàng chờ duyệt", icon: "📋" },
+  { href: "/doctor", label: "Hàng chờ duyệt", icon: ClipboardList },
 ];
 
 /**
@@ -53,47 +63,69 @@ export function RoleGuard({ role, children }: { role: Role; children: React.Reac
 
   if (!ok) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <span className="spinner h-6 w-6 text-blue-500" aria-label="Đang tải…" />
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <span className="spinner h-7 w-7 text-teal-700" aria-label="Đang tải…" />
+          <p className="text-xs font-medium text-slate-500">Đang tải OncoScreen AI…</p>
+        </div>
       </div>
     );
   }
 
-  const navItems = role === "doctor" ? DOCTOR_NAV : PATIENT_NAV;
-  const roleBadge = role === "doctor" ? "Bác sĩ" : "Bệnh nhân";
-  const roleBadgeClass =
-    role === "doctor"
-      ? "bg-violet-100 text-violet-700"
-      : "bg-blue-100 text-blue-700";
+  const isDoctor = role === "doctor";
+  const navItems = isDoctor ? DOCTOR_NAV : PATIENT_NAV;
+  const roleBadge = isDoctor ? "Bác sĩ" : "Bệnh nhân";
+
+  const brandBg = isDoctor ? "bg-indigo-600" : "bg-teal-700";
+  const brandText = isDoctor ? "text-indigo-600" : "text-teal-700";
+  const activeNavClass = isDoctor
+    ? "bg-indigo-50 text-indigo-700 font-semibold"
+    : "bg-teal-50 text-teal-800 font-semibold";
+  const roleBadgeClass = isDoctor
+    ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+    : "bg-teal-100 text-teal-800 border border-teal-200";
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100">
+    <div className="flex min-h-screen flex-col bg-slate-50">
       {/* ===== Top Navbar ===== */}
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
           {/* Logo */}
-          <Link href={homeFor(role)} className="flex items-center gap-2 font-bold text-slate-900 hover:text-blue-600 transition-colors">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white text-xs font-bold">OS</span>
-            <span className="hidden sm:inline">OncoScreen AI</span>
+          <Link
+            href={homeFor(role)}
+            className="flex items-center gap-2.5 font-bold text-slate-900 transition-colors"
+          >
+            <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${brandBg} text-white shadow-sm`}>
+              <HeartPulse className="h-5 w-5" />
+            </span>
+            <div className="flex flex-col">
+              <span className="text-base font-bold leading-tight tracking-tight text-slate-900">
+                OncoScreen <span className={brandText}>AI</span>
+              </span>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                {isDoctor ? "Cổng Bác sĩ" : "Hỗ trợ Tầm soát"}
+              </span>
+            </div>
           </Link>
 
           {/* Nav links */}
-          <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Điều hướng chính">
+          <nav className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto py-1 pl-4" aria-label="Điều hướng chính">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
+              const IconComponent = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     isActive
-                      ? "bg-blue-50 text-blue-600"
+                      ? activeNavClass
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  <span aria-hidden="true">{item.icon}</span>
-                  {item.label}
+                  <IconComponent className={`h-4 w-4 ${isActive ? brandText : "text-slate-500"}`} />
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
@@ -102,28 +134,36 @@ export function RoleGuard({ role, children }: { role: Role; children: React.Reac
           {/* User info + logout */}
           <div className="flex items-center gap-3">
             <div className="hidden flex-col items-end text-right sm:flex">
-              <span className="text-sm font-medium text-slate-800 leading-tight">{userName}</span>
-              <span className={`badge text-[10px] ${roleBadgeClass}`}>{roleBadge}</span>
+              <span className="text-sm font-semibold text-slate-900 leading-tight">{userName}</span>
+              <span className={`badge text-[10px] mt-0.5 ${roleBadgeClass}`}>{roleBadge}</span>
             </div>
             <button
               id="btn-logout"
               type="button"
               onClick={handleLogout}
-              className="btn-ghost text-xs"
+              className="btn-ghost flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-500 hover:text-red-600"
               title="Đăng xuất"
             >
-              Đăng xuất
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Đăng xuất</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* ===== Page content ===== */}
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
 
       {/* ===== Footer ===== */}
-      <footer className="border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-400">
-        OncoScreen AI — chỉ hỗ trợ tầm soát, <strong className="font-medium">không chẩn đoán bệnh</strong>. Kế hoạch cá nhân cần bác sĩ phê duyệt; chat chỉ cung cấp kiến thức chung.
+      <footer className="border-t border-slate-200/80 bg-white py-4 text-center text-xs text-slate-500">
+        <div className="mx-auto max-w-6xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>
+            OncoScreen AI — Hỗ trợ đánh giá nguy cơ và lập kế hoạch tầm soát ung thư.
+          </span>
+          <span className="text-slate-400">
+            Không chẩn đoán trực tiếp · Kế hoạch cần bác sĩ xác nhận
+          </span>
+        </div>
       </footer>
     </div>
   );

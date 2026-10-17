@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Role } from "@/types/api";
 import { homeFor, saveSession } from "@/lib/auth";
+import { HeartPulse, User, Activity, AlertTriangle, CheckCircle2 } from "@/components/icons";
 
 type Tab = "login" | "register";
 
 const DEMO_ACCOUNTS = [
-  { label: "Bệnh nhân demo", email: "lan@demo.vn", password: "123456", role: "patient" as Role },
+  { label: "Bệnh nhân demo (Lan)", email: "lan@demo.vn", password: "123456", role: "patient" as Role },
   { label: "Bác sĩ demo", email: "doctor@demo.vn", password: "123456", role: "doctor" as Role },
 ];
 
@@ -39,7 +40,7 @@ export default function LoginPage() {
       saveSession(res.access_token, res.user);
       router.replace(homeFor(res.user.role));
     } catch (err) {
-      setLoginError(err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng thử lại.");
+      setLoginError(err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
     } finally {
       setLoginLoading(false);
     }
@@ -57,7 +58,6 @@ export default function LoginPage() {
         role: "patient",
       });
       setRegSuccess(true);
-      // Tự chuyển sang tab đăng nhập, điền sẵn email
       setTimeout(() => {
         setTab("login");
         setLoginEmail(regEmail);
@@ -66,7 +66,7 @@ export default function LoginPage() {
         setRegFullName("");
         setRegEmail("");
         setRegPassword("");
-      }, 1500);
+      }, 1200);
     } catch (err) {
       setRegError(err instanceof Error ? err.message : "Đăng ký thất bại. Vui lòng thử lại.");
     } finally {
@@ -82,185 +82,218 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-white to-slate-100 p-4">
-      {/* Logo / brand */}
-      <div className="mb-8 text-center fade-in">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 shadow-lg shadow-blue-200">
-          <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-white" aria-hidden="true">
-            <path
-              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2v-5h2v5zm0-7h-2V7h2v2z"
-              fill="currentColor"
-            />
-          </svg>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-4 sm:p-6">
+      <div className="w-full max-w-md space-y-6">
+        {/* Brand Header */}
+        <div className="text-center space-y-2">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-700 text-white shadow-md shadow-teal-700/20">
+            <HeartPulse className="h-8 w-8" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            OncoScreen <span className="text-teal-700">AI</span>
+          </h1>
+          <p className="text-sm text-slate-500 max-w-xs mx-auto leading-relaxed">
+            Hệ thống hỗ trợ tầm soát ung thư thông minh có bác sĩ phê duyệt
+          </p>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900">OncoScreen AI</h1>
-        <p className="mt-1 text-sm text-slate-500">Hỗ trợ tầm soát ung thư có bác sĩ phê duyệt</p>
-      </div>
 
-      {/* Card */}
-      <div className="w-full max-w-sm fade-in">
-        <div className="card-padded">
-          {/* Tabs */}
-          <div className="mb-5 flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+        {/* Card Form */}
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-sm">
+          {/* Tab Switcher */}
+          <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
             <button
-              id="tab-login"
               type="button"
-              className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-all ${
-                tab === "login" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              onClick={() => {
+                setTab("login");
+                setLoginError(null);
+              }}
+              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
+                tab === "login"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
-              onClick={() => setTab("login")}
             >
               Đăng nhập
             </button>
             <button
-              id="tab-register"
               type="button"
-              className={`flex-1 rounded-md py-1.5 text-sm font-medium transition-all ${
-                tab === "register" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              onClick={() => {
+                setTab("register");
+                setRegError(null);
+              }}
+              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
+                tab === "register"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
-              onClick={() => setTab("register")}
             >
-              Đăng ký
+              Tạo tài khoản
             </button>
           </div>
 
-          {/* ===== Đăng nhập ===== */}
-          {tab === "login" && (
-            <form id="form-login" onSubmit={handleLogin} className="space-y-4 fade-in">
+          {/* Form Content */}
+          {tab === "login" ? (
+            <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label htmlFor="login-email" className="label">Email</label>
+                <label className="label" htmlFor="login-email">
+                  Địa chỉ Email
+                </label>
                 <input
                   id="login-email"
                   type="email"
-                  autoComplete="email"
                   required
-                  className={`input ${loginError ? "input-error" : ""}`}
-                  placeholder="email@example.com"
+                  placeholder="name@example.vn"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
+                  className="input"
                 />
               </div>
+
               <div>
-                <label htmlFor="login-password" className="label">Mật khẩu</label>
+                <label className="label" htmlFor="login-password">
+                  Mật khẩu
+                </label>
                 <input
                   id="login-password"
                   type="password"
-                  autoComplete="current-password"
                   required
-                  className={`input ${loginError ? "input-error" : ""}`}
                   placeholder="••••••••"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
+                  className="input"
                 />
               </div>
+
               {loginError && (
-                <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 fade-in">
-                  {loginError}
-                </p>
+                <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{loginError}</span>
+                </div>
               )}
+
               <button
-                id="btn-login-submit"
                 type="submit"
                 disabled={loginLoading}
-                className="btn-primary w-full"
+                className="btn-primary w-full py-2.5 text-sm font-semibold"
               >
-                {loginLoading ? <span className="spinner" aria-hidden="true" /> : null}
-                {loginLoading ? "Đang đăng nhập…" : "Đăng nhập"}
+                {loginLoading ? (
+                  <>
+                    <span className="spinner h-4 w-4" />
+                    <span>Đang xác thực…</span>
+                  </>
+                ) : (
+                  "Đăng nhập hệ thống"
+                )}
               </button>
             </form>
-          )}
-
-          {/* ===== Đăng ký ===== */}
-          {tab === "register" && (
-            <form id="form-register" onSubmit={handleRegister} className="space-y-4 fade-in">
+          ) : (
+            <form onSubmit={handleRegister} className="space-y-4">
               <div>
-                <label htmlFor="reg-fullname" className="label">Họ và tên</label>
+                <label className="label" htmlFor="reg-name">
+                  Họ và tên
+                </label>
                 <input
-                  id="reg-fullname"
+                  id="reg-name"
                   type="text"
-                  autoComplete="name"
                   required
-                  className="input"
-                  placeholder="Nguyễn Thị Lan"
+                  placeholder="Nguyễn Văn A"
                   value={regFullName}
                   onChange={(e) => setRegFullName(e.target.value)}
+                  className="input"
                 />
               </div>
+
               <div>
-                <label htmlFor="reg-email" className="label">Email</label>
+                <label className="label" htmlFor="reg-email">
+                  Địa chỉ Email
+                </label>
                 <input
                   id="reg-email"
                   type="email"
-                  autoComplete="email"
                   required
-                  className="input"
-                  placeholder="email@example.com"
+                  placeholder="name@example.vn"
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
+                  className="input"
                 />
               </div>
+
               <div>
-                <label htmlFor="reg-password" className="label">Mật khẩu</label>
+                <label className="label" htmlFor="reg-password">
+                  Mật khẩu
+                </label>
                 <input
                   id="reg-password"
                   type="password"
-                  autoComplete="new-password"
                   required
                   minLength={6}
-                  className="input"
                   placeholder="Tối thiểu 6 ký tự"
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
+                  className="input"
                 />
               </div>
-              <p className="text-sm text-slate-500">Tài khoản mới được tạo cho bệnh nhân. Bác sĩ nhận tài khoản do quản trị viên cấp.</p>
-              {regError && (
-                <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 fade-in">
-                  {regError}
-                </p>
-              )}
+
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Tài khoản đăng ký mới dành cho Bệnh nhân. Bác sĩ và chuyên viên y tế được cấp tài khoản qua Quản trị viên.
+              </p>
+
               {regSuccess && (
-                <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 fade-in">
-                  ✓ Đăng ký thành công! Đang chuyển sang đăng nhập…
-                </p>
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>Đăng ký thành công! Đang chuyển sang màn đăng nhập…</span>
+                </div>
               )}
+
+              {regError && (
+                <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{regError}</span>
+                </div>
+              )}
+
               <button
-                id="btn-register-submit"
                 type="submit"
                 disabled={regLoading || regSuccess}
-                className="btn-primary w-full"
+                className="btn-primary w-full py-2.5 text-sm font-semibold"
               >
-                {regLoading ? <span className="spinner" aria-hidden="true" /> : null}
-                {regLoading ? "Đang đăng ký…" : "Tạo tài khoản"}
+                {regLoading ? (
+                  <>
+                    <span className="spinner h-4 w-4" />
+                    <span>Đang tạo tài khoản…</span>
+                  </>
+                ) : (
+                  "Tạo tài khoản bệnh nhân"
+                )}
               </button>
             </form>
           )}
-        </div>
 
-        {/* Demo accounts */}
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white/60 p-4 backdrop-blur-sm">
-          <p className="mb-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide">Đăng nhập nhanh (demo)</p>
-          <div className="flex gap-2">
-            {DEMO_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.email}
-                id={`btn-demo-${acc.role}`}
-                type="button"
-                onClick={() => fillDemo(acc)}
-                className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-              >
-                <span className="block font-medium">{acc.label}</span>
-                <span className="text-slate-400">{acc.email}</span>
-              </button>
-            ))}
+          {/* Quick Demo Access */}
+          <div className="mt-8 border-t border-slate-100 pt-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 text-center mb-3">
+              Tài khoản dùng thử nhanh
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {DEMO_ACCOUNTS.map((acc) => (
+                <button
+                  key={acc.email}
+                  type="button"
+                  onClick={() => fillDemo(acc)}
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 p-2.5 text-left text-xs font-medium text-slate-700 hover:border-teal-500 hover:bg-teal-50/50 transition-colors"
+                >
+                  {acc.role === "doctor" ? (
+                    <Activity className="h-4 w-4 text-indigo-600 shrink-0" />
+                  ) : (
+                    <User className="h-4 w-4 text-teal-600 shrink-0" />
+                  )}
+                  <span className="truncate">{acc.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Disclaimer nhỏ */}
-      <p className="mt-8 max-w-xs text-center text-xs text-slate-400">
-        OncoScreen AI chỉ hỗ trợ tư vấn tầm soát, <strong>không chẩn đoán bệnh</strong>. Mọi kết quả phải được bác sĩ phê duyệt trước khi bệnh nhân xem.
-      </p>
     </main>
   );
 }
