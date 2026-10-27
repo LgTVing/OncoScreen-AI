@@ -12,13 +12,16 @@ def get_by_email(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == email.lower()))
 
 
-def create_user(db: Session, body: RegisterIn) -> User:
+def create_user(db: Session, body: RegisterIn, commit: bool = True) -> User:
     user = User(
         email=body.email.lower(), password_hash=hash_password(body.password), full_name=body.full_name, role=body.role
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    if commit:
+        db.commit()
+        db.refresh(user)
+    else:
+        db.flush()
     return user
 
 

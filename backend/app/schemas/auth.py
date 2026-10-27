@@ -9,8 +9,10 @@ from pydantic import BaseModel, EmailStr, Field
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
-    full_name: str
+    full_name: str = Field(min_length=1, max_length=255)
     role: Literal["patient", "doctor"]
+    consultation_id: str | None = None
+    consultation_token: str | None = None
 
 
 class LoginIn(BaseModel):

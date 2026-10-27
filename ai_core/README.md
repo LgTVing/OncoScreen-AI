@@ -1,26 +1,25 @@
 # ai_core — Module 1: AI Core & Data
 
-Owner: **Tuyền**. Hướng dẫn chi tiết: [docs/guides/GUIDE_AI_CORE.md](../docs/guides/GUIDE_AI_CORE.md).
+Owner: **Tuyền**. Hướng dẫn: [docs/guides/GUIDE_AI_CORE.md](../docs/guides/GUIDE_AI_CORE.md).
 Contract: [docs/protocols/AI_CORE_CONTRACT.md](../docs/protocols/AI_CORE_CONTRACT.md) ⇄ `ai_core/schemas.py`.
-Bản đồ từng file, node, use case và extension IDE: [FILE_MAP.md](FILE_MAP.md).
+Bản đồ file: [FILE_MAP.md](FILE_MAP.md). Kỹ thuật độ tin cậy: [docs/05_AGENT_RELIABILITY.md](../docs/05_AGENT_RELIABILITY.md).
+
+Hai agent dùng chung lõi:
+- **Navigator** (`agents/navigator.py`) — người dân hỏi về tầm soát, không cần tài khoản: luật tầm soát có nguồn, red-flag ngắt luồng, điều hướng đặt lịch.
+- **Clinical Copilot** (`agents/copilot.py`) — bác sĩ: tóm tắt hồ sơ xuyên suốt (dữ kiện truy vết `event_id`), gợi ý guideline, bản nháp kế hoạch để duyệt.
 
 ```bash
-pip install -e ".[dev,local-embed,openai]"  # từ thư mục ai_core, cho OpenRouter và RAG embedding local
-pytest -q
-python -m ai_core.cli demo          # MockAgent
-python -m ai_core.cli demo --case lung
-python -m ai_core.cli demo --case red-flag
-python scripts/ingest.py            # nạp data/guidelines → Chroma
-python -m ai_core.cli demo --real   # agent thật (cần LLM key; không có nguồn thì chờ bác sĩ)
+pip install -e ".[dev,local-embed,openai]"   # từ thư mục ai_core
+pytest -q                                    # 58 test: luật, RAG, guardrail, fallback, eval
+python -m ai_core.cli demo                   # MockAgent: Navigator + Copilot brief (ca nữ 45 tuổi)
+python -m ai_core.cli demo --case lung|red-flag|ask
+python -m ai_core.cli eval                   # golden set 20 ca (thêm --real để đo với LLM)
+python scripts/ingest.py                     # nạp data/guidelines → Chroma (tuỳ chọn; thiếu thì dùng BM25)
+python -m ai_core.cli demo --real            # agent thật (cần LLM key)
 ```
 
-Backend chỉ import: `ai_core.api`, `ai_core.schemas`.
+Backend chỉ import `ai_core.api`, `ai_core.schemas` (và `ai_core.guardrails` để kiểm kế hoạch bác sĩ sửa).
 
-`MockAgent` chạy độc lập, không cần API key hoặc vector store. Ba ca demo bao gồm
-nữ 45 tuổi có tiền sử gia đình ung thư vú, nam 55 tuổi hút thuốc 30 gói-năm,
-và ca có red-flag. Kết quả mock chỉ là dữ liệu minh họa để phát triển và tích hợp,
-không phải khuyến nghị y tế dùng cho bệnh nhân.
-
-Để backend dùng agent thật, đặt `USE_MOCK_AGENT=false` trong root `.env` rồi khởi động lại backend. Agent chạy `collect → red_flag → assess_risk → retrieve → recommend → guardrail`; khi RAG rỗng, kết quả vẫn là `pending_review` với `draft_plan=null` và ghi rõ thiếu căn cứ. Bác sĩ duyệt hoặc từ chối qua giao diện; bệnh nhân chỉ hỏi đáp về phiên đã được duyệt. Trace từng node được lưu trong audit log và hiển thị cho bác sĩ, không lưu dữ liệu bệnh nhân trong trace.
-
-`requirements.txt` ở root đã bao gồm extra `local-embed` và `openai`. Chỉ có một guideline mẫu ngắn trong `data/guidelines/`, nên phần lớn hồ sơ thật sẽ thiếu nguồn và không có kế hoạch tự động. Xem [hướng dẫn tích hợp](../docs/guides/GUIDE_INTEGRATION.md) để chạy FE/BE/AI.
+`MockAgent` chạy **cùng pipeline** với agent thật (luật, red-flag, BM25, guardrail, tracing) nhưng không gọi LLM và không cần
+vector store — hành vi an toàn giống hệt, chỉ khác bước sinh văn bản. Kho guideline (`data/guidelines/`) hiện có 8 bản tóm tắt
+ở trạng thái `review_status: draft`: cần bác sĩ rà soát trước khi dùng với người bệnh thật.

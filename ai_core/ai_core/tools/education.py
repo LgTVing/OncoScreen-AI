@@ -2,38 +2,48 @@
 
 from __future__ import annotations
 
-import frontmatter
+import json
+from functools import lru_cache
 
 from ai_core.config import DATA_DIR
+from ai_core.rag.corpus import load_docs
 from ai_core.schemas import CancerType, EducationContent, Source
+from ai_core.tools.eligibility import LABEL_VI
+
+
+@lru_cache(maxsize=1)
+def _warning_signs() -> list[str]:
+    raw = json.loads((DATA_DIR / "red_flags.json").read_text(encoding="utf-8"))
+    return [f"{r['symptom']}: {r['advice']}" for r in raw]
 
 
 def get_education_content(cancer_type: CancerType) -> EducationContent:
     sources: list[Source] = []
     sections: list[str] = []
-    for path in sorted((DATA_DIR / "guidelines").glob("*.md")):
-        if path.name.lower() == "readme.md":
+    for doc in load_docs().values():
+        if doc.meta.get("cancer_type") != cancer_type.value:
             continue
-        post = frontmatter.load(path, encoding="utf-8")
-        if post.metadata.get("cancer_type") != cancer_type.value:
-            continue
+        first = next(iter(doc.sections))
         sources.append(
             Source(
-                doc_id=path.stem,
-                title=str(post.metadata.get("source", path.stem)),
-                excerpt=post.content[:500],
-                url=post.metadata.get("url"),
+                doc_id=doc.doc_id,
+                title=doc.title,
+                section=first,
+                excerpt=doc.sections[first][:500],
+                url=doc.meta.get("url"),
             )
         )
-        sections.append(post.content.strip()[:3000])
+        sections.append(
+            f"### {doc.title}\n" + "\n\n".join(f"**{name}.** {text}" for name, text in doc.sections.items())
+        )
     body = (
-        "\n\n".join(sections)
-        if sections
-        else "Chưa có tài liệu phù hợp để cung cấp nội dung giáo dục cho chủ đề này."
+        "\n\n".join(sections) if sections else "Chưa có tài liệu phù hợp để cung cấp nội dung giáo dục cho chủ đề này."
     )
     return EducationContent(
         cancer_type=cancer_type,
-        title=f"Thông tin tầm soát ung thư {cancer_type.value}",
+        title=f"Tầm soát {LABEL_VI[cancer_type]}",
+        warning_signs=_warning_signs(),
+        prevention_tips=[],
         body_md=body,
         sources=sources,
     )

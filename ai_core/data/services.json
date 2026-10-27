@@ -1,0 +1,74 @@
+{
+  "version": "0.1",
+  "note": "Danh mục mô phỏng; bệnh viện cấu hình theo dịch vụ thực tế.",
+  "services": [
+    {
+      "code": "general_screening",
+      "name": "Khám tư vấn tầm soát ung thư",
+      "cancer_types": [
+        "other"
+      ],
+      "description": "Bác sĩ đánh giá yếu tố nguy cơ và chỉ định các xét nghiệm tầm soát phù hợp."
+    },
+    {
+      "code": "breast_screening",
+      "name": "Tầm soát ung thư vú",
+      "cancer_types": [
+        "breast"
+      ],
+      "description": "Khám vú, chụp nhũ ảnh/siêu âm theo chỉ định của bác sĩ."
+    },
+    {
+      "code": "cervical_screening",
+      "name": "Tầm soát ung thư cổ tử cung",
+      "cancer_types": [
+        "cervical"
+      ],
+      "description": "Khám phụ khoa, xét nghiệm HPV/Pap theo chỉ định."
+    },
+    {
+      "code": "colorectal_screening",
+      "name": "Tầm soát ung thư đại trực tràng",
+      "cancer_types": [
+        "colorectal"
+      ],
+      "description": "Tư vấn xét nghiệm FIT hoặc nội soi đại tràng."
+    },
+    {
+      "code": "lung_screening",
+      "name": "Tầm soát ung thư phổi",
+      "cancer_types": [
+        "lung"
+      ],
+      "description": "Đánh giá tiền sử hút thuốc và chỉ định CT phổi liều thấp."
+    },
+    {
+      "code": "liver_screening",
+      "name": "Giám sát ung thư gan",
+      "cancer_types": [
+        "liver"
+      ],
+      "description": "Khám gan mật, siêu âm gan và AFP cho nhóm nguy cơ cao."
+    },
+    {
+      "code": "prostate_consult",
+      "name": "Tư vấn tầm soát ung thư tuyến tiền liệt",
+      "cancer_types": [
+        "prostate"
+      ],
+      "description": "Trao đổi lợi ích/nguy cơ của xét nghiệm PSA."
+    },
+    {
+      "code": "oncology_followup",
+      "name": "Khám chuyên khoa Ung bướu",
+      "cancer_types": [],
+      "description": "Dành cho người đã từng được chẩn đoán ung thư cần theo dõi."
+    },
+    {
+      "code": "oncology_priority",
+      "name": "Khám ưu tiên — có dấu hiệu cần đánh giá sớm",
+      "cancer_types": [],
+      "description": "Lịch ưu tiên khi có triệu chứng cảnh báo (khối u, chảy máu bất thường, sụt cân…)."
+    }
+  ]
+}

@@ -2,6 +2,10 @@
 
 Mọi thay đổi ở file này là thay đổi contract → PR `contract/*`, cập nhật
 docs/protocols/AI_CORE_CONTRACT.md và frontend/src/types/api.ts.
+
+Hai agent dùng chung một lõi:
+- Navigator (người dùng, ẩn danh): giải đáp + gợi ý tầm soát theo nhóm + điều hướng đặt lịch.
+- Clinical Copilot (bác sĩ): tóm tắt hồ sơ xuyên suốt + gợi ý theo guideline + bản nháp kế hoạch để bác sĩ duyệt.
 """
 
 from __future__ import annotations
@@ -11,6 +15,8 @@ from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+TraceEvent = dict[str, str | int | float | bool]
 
 # --------------------------------------------------------------------------- enums
 
@@ -37,15 +43,6 @@ class RiskLevel(str, Enum):
     high = "high"
 
 
-class SessionStatus(str, Enum):
-    collecting = "collecting"
-    red_flag = "red_flag"
-    pending_review = "pending_review"
-    approved = "approved"
-    rejected = "rejected"
-    completed = "completed"
-
-
 class QuestionType(str, Enum):
     single_choice = "single_choice"
     multi_choice = "multi_choice"
@@ -59,29 +56,56 @@ class RedFlagSeverity(str, Enum):
     soon = "soon"  # khám trong vài tuần
 
 
-# --------------------------------------------------------------------------- input
+class NextAction(str, Enum):
+    """Điều hướng sau mỗi lượt Navigator."""
+
+    continue_chat = "continue_chat"  # tiếp tục hỏi đáp / còn thiếu thông tin
+    suggest_booking = "suggest_booking"  # có mốc tầm soát phù hợp hoặc nguy cơ tăng → gợi ý tạo tài khoản & đặt lịch
+    urgent_care = "urgent_care"  # có dấu hiệu cảnh báo → khám sớm, ngắt tư vấn tầm soát
+
+
+class BookingPriority(str, Enum):
+    routine = "routine"
+    urgent = "urgent"
+
+
+# --------------------------------------------------------------------------- hồ sơ
 
 
 class PatientProfile(BaseModel):
+    """Hồ sơ của tài khoản đã đăng ký (backend lưu ở patient_profiles)."""
+
     model_config = ConfigDict(extra="forbid")
 
     age: int = Field(ge=0, le=120)
     gender: Gender
-    genetics_history: list[str] = Field(default_factory=list, description="mã tiền sử gia đình, xem questionnaire.json")
+    genetics_history: list[str] = Field(
+        default_factory=list, description="mã tiền sử gia đình, vd. breast_cancer_mother"
+    )
     lifestyle: dict[str, Any] = Field(default_factory=dict)
     lifestyle_score: float | None = None
+
+
+class IntakeProfile(BaseModel):
+    """Thông tin sàng lọc Navigator thu thập dần trong hội thoại ẩn danh; mọi trường có thể chưa biết."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    age: int | None = Field(default=None, ge=0, le=120)
+    gender: Gender | None = None
+    family_history: list[CancerType] = Field(default_factory=list)
+    personal_cancer_history: bool | None = None
+    smoking: bool | None = None
+    pack_years: float | None = Field(default=None, ge=0)
+    hepatitis_b_or_c: bool | None = None
+    cirrhosis: bool | None = None
+    hpv_vaccinated: bool | None = None
+    symptom_codes: list[str] = Field(default_factory=list, description="mã red-flag đã ghi nhận")
 
 
 class Answer(BaseModel):
     question_id: str = Field(min_length=1)
     value: Any
-
-
-class PatientContext(BaseModel):
-    session_id: str
-    profile: PatientProfile
-    answers: list[Answer] = Field(default_factory=list)
-    prior_sessions_summary: str | None = Field(default=None, description="memory: tóm tắt các phiên trước (nâng cao)")
 
 
 # --------------------------------------------------------------------------- questionnaire
@@ -133,7 +157,7 @@ class RedFlagResult(BaseModel):
         return self
 
 
-# --------------------------------------------------------------------------- output
+# --------------------------------------------------------------------------- nguồn & kế hoạch
 
 
 class Source(BaseModel):
@@ -152,9 +176,21 @@ class RiskFactor(BaseModel):
     reasons: list[str] = Field(default_factory=list)
 
 
-class RiskAssessment(BaseModel):
-    overall_summary: str
-    factors: list[RiskFactor] = Field(default_factory=list)
+class ScreeningSuggestion(BaseModel):
+    """Mốc tầm soát áp dụng cho NHÓM người dùng (tuổi/giới/yếu tố nguy cơ) theo guideline — mang tính giáo dục,
+    không phải chỉ định cá nhân. Sinh bởi bộ luật xác định (eligibility engine), không phải LLM."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_id: str
+    cancer_type: CancerType
+    method: str
+    start_age: int | None = None
+    interval_months: int | None = Field(default=None, gt=0, description="null = guideline không nêu chu kỳ cố định")
+    applies_because: str
+    note: str | None = None
+    elevated_risk: bool = False
+    sources: list[Source] = Field(min_length=1)
 
 
 class PlanItem(BaseModel):
@@ -169,42 +205,119 @@ class PlanItem(BaseModel):
 
 
 class ScreeningPlan(BaseModel):
+    """Kế hoạch theo dõi cá nhân. AI chỉ soạn nháp; chỉ có hiệu lực khi bác sĩ duyệt (S4)."""
+
     model_config = ConfigDict(extra="forbid")
 
     items: list[PlanItem] = Field(min_length=1)
     general_advice: str = ""
     generated_at: datetime
-    model: str = Field(description="tên model/agent đã sinh plan, vd. claude-opus-5 | mock")
+    model: str = Field(description="tên model/agent đã sinh plan, vd. openai/gpt-5.4-mini | mock | doctor")
 
 
-class ScreeningResult(BaseModel):
+# --------------------------------------------------------------------------- Navigator (người dùng)
+
+
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class BookingHint(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: Literal["pending_review", "red_flag"]
-    risk_assessment: RiskAssessment | None = None
-    draft_plan: ScreeningPlan | None = None
-    red_flag: RedFlagResult | None = None
+    priority: BookingPriority
+    service_codes: list[str] = Field(min_length=1, description="mã dịch vụ trong data/services.json")
+    reason: str
+
+
+class NavigatorReply(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reply: str = Field(min_length=1)
+    sources: list[Source] = Field(default_factory=list)
+    intake: IntakeProfile
+    missing_info: list[str] = Field(default_factory=list, description="trường cần hỏi thêm: age, gender, pack_years…")
+    suggestions: list[ScreeningSuggestion] = Field(default_factory=list)
+    risk_factors: list[RiskFactor] = Field(default_factory=list)
+    red_flag: RedFlagResult
+    next_action: NextAction
+    booking_hint: BookingHint | None = None
+    insufficient_evidence: bool = False
     disclaimer: str
     trace_id: str
-    trace_events: list[dict[str, str | int | bool]] = Field(default_factory=list)
+    trace_events: list[TraceEvent] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _validate_status_payload(self) -> ScreeningResult:
-        if not self.disclaimer.strip():
-            raise ValueError("disclaimer must not be empty")
-        if not self.trace_id.strip():
-            raise ValueError("trace_id must not be empty")
-        if self.status == "red_flag":
-            if self.draft_plan is not None or self.risk_assessment is not None:
-                raise ValueError("red_flag results cannot contain risk_assessment or draft_plan")
-            if self.red_flag is None or not self.red_flag.detected:
-                raise ValueError("red_flag results require red_flag.detected=true")
-        else:
-            if self.risk_assessment is None:
-                raise ValueError("pending_review results require risk_assessment")
-            if self.red_flag is not None:
-                raise ValueError("pending_review results cannot contain red_flag")
+    def _validate_triage(self) -> NavigatorReply:
+        if not self.disclaimer.strip() or not self.trace_id.strip():
+            raise ValueError("disclaimer and trace_id must not be empty")
+        if self.red_flag.detected:
+            if self.next_action != NextAction.urgent_care:
+                raise ValueError("red-flag replies must route to urgent_care")
+            if self.suggestions:
+                raise ValueError("red-flag replies cannot contain screening suggestions")
+        elif self.next_action == NextAction.urgent_care:
+            raise ValueError("urgent_care requires a detected red flag")
+        if self.next_action != NextAction.continue_chat and self.booking_hint is None:
+            raise ValueError("booking routes require booking_hint")
         return self
+
+
+# --------------------------------------------------------------------------- Clinical Copilot (bác sĩ)
+
+
+class RecordEvent(BaseModel):
+    """Một mốc trong hồ sơ xuyên suốt (timeline) do backend tổng hợp."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    at: datetime
+    kind: str = Field(description="consult.summary | red_flag | appointment.* | encounter.finalized | reminder.* …")
+    summary: str
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class PatientRecord(BaseModel):
+    """Toàn bộ dữ liệu một bệnh nhân từ lần tư vấn đầu tới hiện tại — đầu vào cho Copilot."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    patient_id: str
+    full_name: str | None = None
+    profile: PatientProfile | None = None
+    intake: IntakeProfile | None = None
+    reason_for_visit: str | None = None
+    events: list[RecordEvent] = Field(default_factory=list)
+
+
+class BriefFact(BaseModel):
+    text: str
+    event_ids: list[str] = Field(min_length=1, description="truy vết về RecordEvent.id — chống bịa")
+
+
+class ClinicalBrief(BaseModel):
+    """Tóm tắt trước khám cho bác sĩ. Công cụ hỗ trợ quyết định: không chẩn đoán, không diễn giải kết quả."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str
+    key_facts: list[BriefFact] = Field(default_factory=list)
+    red_flags: list[RedFlag] = Field(default_factory=list)
+    risk_factors: list[RiskFactor] = Field(default_factory=list)
+    guideline_suggestions: list[ScreeningSuggestion] = Field(default_factory=list)
+    questions_to_clarify: list[str] = Field(default_factory=list)
+    data_gaps: list[str] = Field(default_factory=list)
+    draft_plan: ScreeningPlan | None = None
+    disclaimer: str
+    generated_at: datetime
+    model: str
+    trace_id: str
+    trace_events: list[TraceEvent] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------- hỏi đáp & giáo dục
 
 
 class EducationContent(BaseModel):
@@ -222,8 +335,4 @@ class QuestionAnswer(BaseModel):
     disclaimer: str
     trace_id: str
     insufficient_evidence: bool = False
-
-
-class ChatTurn(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=1000)
+    trace_events: list[TraceEvent] = Field(default_factory=list)

@@ -1,16 +1,48 @@
 {
-  "version": "0.1",
+  "version": "0.2",
   "questions": [
     {
+      "id": "age",
+      "text": "Bạn bao nhiêu tuổi?",
+      "type": "number",
+      "required": true
+    },
+    {
+      "id": "gender",
+      "text": "Giới tính của bạn?",
+      "type": "single_choice",
+      "options": [
+        "Nữ",
+        "Nam",
+        "Khác"
+      ],
+      "required": true
+    },
+    {
       "id": "family_history",
-      "text": "Trong gia đình (bố, mẹ, anh chị em ruột) có ai từng mắc ung thư không?",
+      "text": "Trong gia đình (bố, mẹ, anh chị em ruột, con) có ai từng mắc ung thư không?",
       "type": "multi_choice",
-      "options": ["Không", "Ung thư vú", "Ung thư đại trực tràng", "Ung thư gan", "Ung thư phổi", "Ung thư cổ tử cung", "Ung thư tuyến tiền liệt", "Khác"],
+      "options": [
+        "Không",
+        "Ung thư vú",
+        "Ung thư cổ tử cung",
+        "Ung thư đại trực tràng",
+        "Ung thư gan",
+        "Ung thư phổi",
+        "Ung thư tuyến tiền liệt",
+        "Khác"
+      ],
+      "required": true
+    },
+    {
+      "id": "personal_cancer_history",
+      "text": "Bản thân bạn đã từng được chẩn đoán ung thư chưa?",
+      "type": "boolean",
       "required": true
     },
     {
       "id": "smoking",
-      "text": "Bạn có đang hút thuốc hoặc từng hút thuốc không?",
+      "text": "Bạn đang hút thuốc hoặc đã bỏ thuốc trong vòng 15 năm gần đây?",
       "type": "boolean",
       "required": true
     },
@@ -22,23 +54,23 @@
       "depends_on": "smoking=true"
     },
     {
-      "id": "alcohol",
-      "text": "Mức độ uống rượu bia?",
-      "type": "single_choice",
-      "options": ["Không", "Ít (≤1 lần/tuần)", "Thường xuyên (≥3 lần/tuần)"],
-      "required": true
-    },
-    {
       "id": "hbv_hcv",
-      "text": "Bạn có từng được chẩn đoán viêm gan B hoặc C không?",
+      "text": "Bạn có đang mang viêm gan B hoặc C mạn tính không?",
       "type": "boolean",
       "required": true
     },
     {
-      "id": "f_hpv_vaccine",
-      "text": "Bạn đã tiêm vắc-xin HPV chưa?",
+      "id": "cirrhosis",
+      "text": "Bác sĩ đã từng nói bạn bị xơ gan chưa?",
       "type": "boolean",
       "required": false
+    },
+    {
+      "id": "hpv_vaccine",
+      "text": "Bạn đã tiêm vắc-xin HPV chưa?",
+      "type": "boolean",
+      "required": false,
+      "depends_on": "gender=Nữ"
     },
     {
       "id": "symptom_lump",

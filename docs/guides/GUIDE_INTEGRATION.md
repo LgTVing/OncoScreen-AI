@@ -1,6 +1,6 @@
 # Guide: Tích hợp FE, BE và AI Core
 
-AI Core là package Python được backend gọi trực tiếp, không có server/port riêng. Frontend gọi REST API của backend. `USE_MOCK_AGENT=true` dùng dữ liệu demo; `false` chạy LangGraph thật. Khi RAG chưa có guideline phù hợp, agent thật vẫn trả phiên `pending_review` với `draft_plan=null` để bác sĩ xử lý.
+AI Core là package Python được backend gọi trực tiếp, không có server/port riêng. Frontend gọi REST API của backend. `USE_MOCK_AGENT=true` chạy cùng pipeline (luật, red-flag, BM25, guardrail) nhưng không gọi LLM; `false` bật LLM. LLM lỗi hoặc bị guardrail chặn → agent tự trả câu trả lời mẫu xác định (trace ghi `template_fallback`).
 
 ## Khởi động (Linux/macOS, từ root repo)
 
@@ -47,7 +47,7 @@ Mở `http://localhost:3000`, API docs `http://localhost:8000/docs`. Frontend d�
 
 ## Tài khoản demo và luồng kiểm tra
 
-`python backend/scripts/seed.py` tạo tài khoản sau (mật khẩu chung `123456`):
+`python backend/scripts/seed.py` tạo tài khoản sau (mật khẩu chung `123456`) và một lịch hẹn tầm soát phổi cho `hung@demo.vn`:
 
 | Vai trò | Email |
 |---|---|
@@ -55,14 +55,15 @@ Mở `http://localhost:3000`, API docs `http://localhost:8000/docs`. Frontend d�
 | Bệnh nhân | `lan@demo.vn` |
 | Bệnh nhân | `hung@demo.vn` |
 
-1. Đăng nhập bệnh nhân, cập nhật hồ sơ, tạo phiên và trả lời khảo sát. Có thể gửi câu trả lời từng phần; phiên giữ `collecting` đến khi đủ câu.
-2. Thử một câu trả lời red-flag: phiên chuyển `red_flag`, hiển thị cảnh báo, không có kế hoạch.
-3. Với ca thường, phiên sang `pending_review`. Đăng nhập bác sĩ, vào hàng chờ, mở phiên để xem risk, nguồn/kế hoạch hoặc cảnh báo thiếu căn cứ, cùng trace các node.
-4. Bác sĩ chỉnh kế hoạch rồi duyệt hoặc từ chối. Khi không có kế hoạch, ghi chú là bắt buộc để xác nhận thiếu căn cứ. Kế hoạch có ngày `next_due` mới tạo reminder; bệnh nhân đánh dấu hoàn thành thì hệ thống tạo lịch chu kỳ kế tiếp.
-5. Đăng nhập lại bệnh nhân để xem kết quả đã duyệt, lịch nhắc nếu có, trang tài liệu tầm soát và đặt câu hỏi. Hỏi đáp chỉ dùng kế hoạch đã duyệt; phiên không có kế hoạch nhận câu trả lời thiếu thông tin.
-6. Để thử chat kiến thức chung mà không cần chờ bác sĩ duyệt, vào **Chat AI** trong thanh điều hướng, chọn **Ung thư vú** và hỏi “Khuyến nghị tầm soát chung cho nhóm nguy cơ trung bình là gì?”. Hiện guideline mẫu chỉ có chủ đề này; các chủ đề chưa có tài liệu sẽ trả lời thiếu thông tin. Chat gửi các lượt trước làm ngữ cảnh nhưng không lưu cuộc hội thoại khi tải lại trang. Chỉ dùng dữ liệu giả với model miễn phí.
+1. **Navigator ẩn danh**: mở `http://localhost:3000` khi chưa đăng nhập, hỏi "Tôi là nữ 45 tuổi, mẹ tôi bị ung thư vú, nên tầm soát gì?" hoặc làm bảng hỏi nhanh. Thấy gợi ý có nguồn và nút tạo tài khoản.
+2. **Red-flag**: ở phiên mới, nhập "Em sờ thấy một khối cứng ở vú" → cảnh báo khám sớm, không có gợi ý tầm soát, CTA đặt lịch ưu tiên.
+3. **Ngoài phạm vi**: "Kết quả PSA của tôi là 6 có phải ung thư không?" → từ chối chẩn đoán, mời đặt lịch.
+4. **Tạo tài khoản & đặt lịch**: từ CTA, đăng ký → hồ sơ điền sẵn → đặt lịch (dịch vụ chọn sẵn).
+5. **Bác sĩ**: đăng nhập `doctor@demo.vn` → hàng chờ (khẩn lên đầu) → xác nhận → **Bắt đầu khám** → brief của Copilot (dữ kiện trỏ về mốc hồ sơ, gợi ý guideline, câu hỏi cần làm rõ, khoảng trống dữ liệu) → hỏi Copilot → sửa bản nháp, điền ngày hẹn → viết kết luận → duyệt.
+6. **Theo dõi**: đăng nhập lại bệnh nhân → hồ sơ xuyên suốt, kết luận, kế hoạch, nhắc lịch; hỏi đáp về kế hoạch đã duyệt; đánh dấu đã tầm soát → chu kỳ kế tiếp.
+7. **Quan sát AI**: dashboard bác sĩ hiển thị `GET /doctor/metrics` và danh sách trace `GET /doctor/agent-runs`.
 
-Tài khoản bác sĩ chỉ được tạo qua seed/quản trị viên; API đăng ký công khai chỉ tạo bệnh nhân. `GET /doctor/metrics` đếm phiên theo trạng thái, phiên chờ thiếu kế hoạch và số câu hỏi; audit log lưu dấu vết node, thời lượng, số nguồn, quyết định duyệt và metadata hỏi đáp, không lưu nội dung hỏi đáp.
+Tài khoản bác sĩ chỉ được tạo qua seed/quản trị viên. `agent_runs` lưu metadata từng node (thời lượng, số nguồn, bộ sinh văn bản, kết quả guard), không lưu nội dung hội thoại.
 
 ## Sự cố thường gặp
 
@@ -71,6 +72,7 @@ Tài khoản bác sĩ chỉ được tạo qua seed/quản trị viên; API đă
 | `docker: command not found` | Dùng SQLite dev bằng `DATABASE_URL=sqlite:///./dev.db`, hoặc cài Docker/Compose. |
 | Không có `python`/`uvicorn` | Kích hoạt đúng venv và chạy `python -m pip install -r requirements.txt`. |
 | `/api/v1/health` vẫn báo `mock` | Kiểm tra `USE_MOCK_AGENT=false` trong root `.env`, khởi động lại backend. |
-| Agent trả thiếu căn cứ, log `http_status=402` | Key OpenRouter đã được nhận nhưng model có phí cần credit/quota; kiểm tra tài khoản OpenRouter hoặc chuyển sang model miễn phí ở trên để demo bằng hồ sơ giả. |
-| Phiên có `draft_plan=null` | Xem trace node `retrieve`; kiểm tra guideline đã ingest, metadata và embedding. Đây là nhánh xử lý thiếu căn cứ. |
+| Trace ghi `generator=template_fallback`, `guard=llm_error` | LLM lỗi (key, quota, model). Kiểm tra log `navigator_llm_unavailable`; với OpenRouter có thể chuyển sang model miễn phí để demo bằng hồ sơ giả. |
+| Trace `retrieve` báo `mode=lexical`, `dense=unavailable` | Chưa ingest vector store hoặc thiếu model embedding; RAG vẫn chạy bằng BM25. Chạy `python scripts/ingest.py` trong `ai_core/`. |
+| Brief không có `draft_plan` | Hồ sơ có red-flag (cố ý), hoặc chưa đủ tuổi/giới, hoặc không có luật tầm soát áp dụng. |
 | FE lỗi CORS | Kiểm tra `CORS_ORIGINS` trong `.env` chứa `http://localhost:3000`. |
