@@ -1,5 +1,7 @@
 # Guide: Module 1 — AI Core & Data (Tuyền)
 
+> **Cập nhật 27/10/2026 — đổi scope:** luồng `screening_sessions` (bảng hỏi → AI soạn kế hoạch → duyệt) đã được thay bằng hành trình Navigator → đặt lịch → Clinical Copilot → theo dõi. Nguồn sự thật hiện hành: `docs/00_OVERVIEW.md`, `docs/02_BUSINESS_FLOW.md`, `docs/05_AGENT_RELIABILITY.md` và các file trong `docs/protocols/`. Checklist bên dưới là lịch sử triển khai giai đoạn trước.
+
 **Bạn sở hữu:** `ai_core/`. **Bạn cung cấp cho backend:** package `ai_core` với interface trong `AI_CORE_CONTRACT.md`.
 **Bạn không cần chờ ai.** Backend/Frontend dùng `MockAgent` của bạn trong lúc bạn làm phần thật.
 

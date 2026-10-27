@@ -2,19 +2,13 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import type { Gender, Lifestyle, PatientProfileIn, PatientProfileOut } from "@/types/api";
-import {
-  User,
-  Activity,
-  Plus,
-  X,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowLeft,
-  HeartPulse,
-} from "@/components/icons";
+import { errorMessage, isStatus } from "@/lib/errors";
+import { CANCER_LABEL, geneticsLabel, RELATIVE_LABEL as RELATIVES } from "@/lib/labels";
+import type { CancerType, Gender, Lifestyle, PatientProfileIn } from "@/types/api";
+import { InlineError } from "@/components/ui";
+import { Activity, CheckCircle2, HeartPulse, Plus, User, X } from "@/components/icons";
 
-/** Màn nhập / cập nhật hồ sơ bệnh nhân. Gọi PUT /patients/me/profile khi submit. */
+/** Thông tin sức khoẻ cơ bản (PUT /patients/me/profile). Được điền sẵn khi đăng ký kèm cuộc trò chuyện. */
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -22,70 +16,60 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  // Form state — khởi tạo từ profile hiện tại
-  const [age, setAge] = useState<number | "">(0);
-  const [gender, setGender] = useState<Gender>("female");
-  const [geneticsHistory, setGeneticsHistory] = useState<string[]>([]);
-  const [geneticsInput, setGeneticsInput] = useState("");
+  const [age, setAge] = useState<number | "">("");
+  const [gender, setGender] = useState<Gender | "">("");
+  const [genetics, setGenetics] = useState<string[]>([]);
+  const [newCancer, setNewCancer] = useState<CancerType>("breast");
+  const [newRelative, setNewRelative] = useState("mother");
   const [lifestyle, setLifestyle] = useState<Lifestyle>({});
 
   useEffect(() => {
     api
       .getProfile()
-      .then((p: PatientProfileOut) => {
-        setAge(p.age ?? "");
-        setGender(p.gender ?? "female");
-        setGeneticsHistory(p.genetics_history ?? []);
+      .then((p) => {
+        setAge(p.age);
+        setGender(p.gender);
+        setGenetics(p.genetics_history ?? []);
         setLifestyle(p.lifestyle ?? {});
       })
-      .catch(() => {
-        // Hồ sơ chưa có — form trống
+      .catch((err) => {
+        if (!isStatus(err, 404)) setError(errorMessage(err, "Chưa tải được hồ sơ."));
       })
       .finally(() => setLoading(false));
   }, []);
 
   function addGenetics() {
-    const val = geneticsInput.trim();
-    if (val && !geneticsHistory.includes(val)) {
-      setGeneticsHistory([...geneticsHistory, val]);
-    }
-    setGeneticsInput("");
+    const code = `${newCancer}_cancer_${newRelative}`;
+    if (!genetics.includes(code)) setGenetics([...genetics, code]);
   }
 
-  function removeGenetics(item: string) {
-    setGeneticsHistory(geneticsHistory.filter((g) => g !== item));
-  }
+  const setBool = (key: "smoking" | "hepatitis_b_or_c" | "cirrhosis", value: boolean) =>
+    setLifestyle((prev) => ({ ...prev, [key]: value, ...(key === "smoking" && !value ? { pack_years: undefined } : {}) }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!age || age < 18 || age > 120) {
-      setError("Độ tuổi tầm soát phải từ 18 đến 120.");
+    setError("");
+    if (age === "" || age < 1 || age > 120) {
+      setError("Vui lòng nhập tuổi từ 1 đến 120.");
       return;
     }
-
-    let computedBmi = lifestyle.bmi;
+    if (!gender) {
+      setError("Vui lòng chọn giới tính.");
+      return;
+    }
+    let bmi = lifestyle.bmi;
     if (lifestyle.height_cm && lifestyle.weight_kg) {
       const h = lifestyle.height_cm / 100;
-      computedBmi = Number((lifestyle.weight_kg / (h * h)).toFixed(1));
+      bmi = Number((lifestyle.weight_kg / (h * h)).toFixed(1));
     }
-
-    const payload: PatientProfileIn = {
-      age: Number(age),
-      gender,
-      genetics_history: geneticsHistory,
-      lifestyle: {
-        ...lifestyle,
-        bmi: computedBmi,
-      },
-    };
+    const payload: PatientProfileIn = { age: Number(age), gender, genetics_history: genetics, lifestyle: { ...lifestyle, bmi } };
     try {
       setSaving(true);
-      setError("");
       await api.putProfile(payload);
       setSuccess(true);
-      setTimeout(() => router.push("/patient"), 1200);
-    } catch {
-      setError("Lưu hồ sơ thất bại. Vui lòng thử lại.");
+      setTimeout(() => router.push("/patient"), 900);
+    } catch (err) {
+      setError(errorMessage(err, "Lưu hồ sơ thất bại. Vui lòng thử lại."));
     } finally {
       setSaving(false);
     }
@@ -93,74 +77,85 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-2xl py-10 space-y-4">
+      <div className="mx-auto max-w-2xl space-y-4" aria-busy="true">
         <div className="skeleton h-8 w-48" />
-        <div className="skeleton h-4 w-96" />
-        <div className="skeleton h-44 rounded-xl" />
-        <div className="skeleton h-44 rounded-xl" />
+        <div className="skeleton h-40 rounded-xl" />
+        <div className="skeleton h-40 rounded-xl" />
       </div>
     );
   }
 
+  const boolField = (key: "smoking" | "hepatitis_b_or_c" | "cirrhosis", legend: string) => (
+    <fieldset className="sm:col-span-2">
+      <legend className="label">{legend}</legend>
+      <div className="flex flex-wrap gap-2 text-sm">
+        {[
+          { label: "Có", value: true },
+          { label: "Không", value: false },
+        ].map((opt) => (
+          <label
+            key={opt.label}
+            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-2 transition-colors ${
+              lifestyle[key] === opt.value ? "border-teal-500 bg-teal-50" : "border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <input
+              type="radio"
+              name={key}
+              checked={lifestyle[key] === opt.value}
+              onChange={() => setBool(key, opt.value)}
+              className="accent-teal-700"
+            />
+            <span>{opt.label}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <header className="space-y-1">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-teal-700 mb-2 transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Quay lại</span>
-        </button>
-        <div className="flex items-center gap-2">
-          <h1 className="page-title">Hồ sơ sức khỏe cơ bản</h1>
-          <span className="badge bg-teal-50 text-teal-700 border border-teal-200">
-            <User className="h-3 w-3" />
-            <span>Cá nhân hóa</span>
-          </span>
-        </div>
-        <p className="page-subtitle">
-          Thông tin dịch tễ và tiền sử gia đình giúp mô hình AI phân tầng nguy cơ và đề xuất đúng guideline.
-        </p>
+      <header>
+        <h1 className="page-title">Thông tin sức khoẻ cơ bản</h1>
+        <p className="page-subtitle">Giúp bác sĩ và trợ lý đối chiếu đúng hướng dẫn tầm soát. Bạn có thể cập nhật bất cứ lúc nào.</p>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-        {/* ===== Thông tin cơ bản ===== */}
         <section className="card-padded space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-            <User className="h-4 w-4 text-teal-700" />
-            <h2 className="font-semibold text-slate-900 text-sm sm:text-base">Thông tin nhân khẩu học</h2>
-          </div>
-
+          <h2 className="flex items-center gap-2 border-b border-slate-100 pb-2.5 text-base font-semibold text-slate-900">
+            <User className="h-5 w-5 text-teal-700" aria-hidden="true" />
+            Thông tin chung
+          </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="profile-age" className="label">
-                Tuổi hiện tại <span className="text-red-500">*</span>
+                Tuổi
               </label>
               <input
                 id="profile-age"
                 type="number"
-                min={18}
+                min={1}
                 max={120}
                 required
                 value={age}
                 onChange={(e) => setAge(e.target.value === "" ? "" : Number(e.target.value))}
                 className="input"
-                placeholder="Ví dụ: 45"
               />
             </div>
-
             <div>
               <label htmlFor="profile-gender" className="label">
-                Giới tính sinh học <span className="text-red-500">*</span>
+                Giới tính
               </label>
               <select
                 id="profile-gender"
                 value={gender}
                 onChange={(e) => setGender(e.target.value as Gender)}
                 className="input"
+                required
               >
+                <option value="" disabled>
+                  Chọn giới tính
+                </option>
                 <option value="female">Nữ</option>
                 <option value="male">Nam</option>
                 <option value="other">Khác</option>
@@ -169,105 +164,86 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        {/* ===== Tiền sử gia đình ===== */}
         <section className="card-padded space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-            <HeartPulse className="h-4 w-4 text-teal-700" />
-            <div>
-              <h2 className="font-semibold text-slate-900 text-sm sm:text-base">Tiền sử gia đình</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Người thân ruột thịt (bố mẹ, anh chị em) từng mắc ung thư.</p>
-            </div>
+          <div className="border-b border-slate-100 pb-2.5">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+              <HeartPulse className="h-5 w-5 text-teal-700" aria-hidden="true" />
+              Tiền sử gia đình
+            </h2>
+            <p className="mt-0.5 text-sm text-slate-500">Người thân ruột thịt từng mắc ung thư.</p>
           </div>
-
-          <div className="flex gap-2">
-            <input
-              id="profile-genetics-input"
-              type="text"
-              value={geneticsInput}
-              onChange={(e) => setGeneticsInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addGenetics();
-                }
-              }}
-              className="input flex-1"
-              placeholder="Ví dụ: Mẹ ung thư vú, Bố ung thư phổi..."
-            />
-            <button
-              type="button"
-              onClick={addGenetics}
-              className="btn-secondary shrink-0 flex items-center gap-1.5"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Thêm</span>
+          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <div>
+              <label htmlFor="profile-gen-cancer" className="label">
+                Loại ung thư
+              </label>
+              <select
+                id="profile-gen-cancer"
+                className="input"
+                value={newCancer}
+                onChange={(e) => setNewCancer(e.target.value as CancerType)}
+              >
+                {(Object.keys(CANCER_LABEL) as CancerType[]).map((t) => (
+                  <option key={t} value={t}>
+                    {CANCER_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="profile-gen-relative" className="label">
+                Người thân
+              </label>
+              <select
+                id="profile-gen-relative"
+                className="input"
+                value={newRelative}
+                onChange={(e) => setNewRelative(e.target.value)}
+              >
+                {Object.entries(RELATIVES).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button type="button" onClick={addGenetics} className="btn-secondary">
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Thêm
             </button>
           </div>
-
-          {geneticsHistory.length > 0 ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {geneticsHistory.map((g) => (
-                <span
-                  key={g}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-800 border border-teal-200"
-                >
-                  <span>{g}</span>
+          {genetics.length > 0 ? (
+            <ul className="flex flex-wrap gap-2">
+              {genetics.map((g) => (
+                <li key={g} className="badge gap-1.5 border border-teal-200 bg-teal-50 py-1 text-teal-800">
+                  <span>{geneticsLabel(g)}</span>
                   <button
                     type="button"
-                    onClick={() => removeGenetics(g)}
-                    className="text-teal-600 hover:text-teal-900 transition-colors"
-                    aria-label={`Xóa ${g}`}
+                    onClick={() => setGenetics(genetics.filter((x) => x !== g))}
+                    className="cursor-pointer rounded text-teal-700 hover:text-teal-900"
+                    aria-label={`Xoá ${geneticsLabel(g)}`}
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
-                </span>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
-            <p className="text-xs text-slate-400 italic">Chưa ghi nhận tiền sử gia đình.</p>
+            <p className="text-sm text-slate-500">Chưa ghi nhận tiền sử gia đình.</p>
           )}
         </section>
 
-        {/* ===== Lối sống ===== */}
         <section className="card-padded space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-            <Activity className="h-4 w-4 text-teal-700" />
-            <h2 className="font-semibold text-slate-900 text-sm sm:text-base">Lối sống & Thể trạng</h2>
-          </div>
-
+          <h2 className="flex items-center gap-2 border-b border-slate-100 pb-2.5 text-base font-semibold text-slate-900">
+            <Activity className="h-5 w-5 text-teal-700" aria-hidden="true" />
+            Lối sống và bệnh nền
+          </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            {/* Hút thuốc */}
-            <div className="sm:col-span-2">
-              <p className="label">Tiền sử hút thuốc lá</p>
-              <div className="mt-1 flex gap-4 text-sm">
-                <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50 transition-colors">
-                  <input
-                    type="radio"
-                    name="smoking"
-                    checked={lifestyle.smoking === true}
-                    onChange={() => setLifestyle({ ...lifestyle, smoking: true })}
-                    className="accent-teal-700"
-                  />
-                  <span>Có hút thuốc</span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50 transition-colors">
-                  <input
-                    type="radio"
-                    name="smoking"
-                    checked={lifestyle.smoking === false}
-                    onChange={() => setLifestyle({ ...lifestyle, smoking: false, pack_years: undefined })}
-                    className="accent-teal-700"
-                  />
-                  <span>Không hút thuốc</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Số gói-năm — chỉ hiện khi có hút thuốc */}
+            {boolField("smoking", "Đang hút thuốc hoặc bỏ thuốc chưa quá 15 năm")}
             {lifestyle.smoking === true && (
-              <div className="sm:col-span-2 bg-amber-50/50 p-3.5 rounded-xl border border-amber-200">
-                <label htmlFor="profile-pack-years" className="label text-amber-950">
-                  Số gói-năm ước tính (Số bao/ngày × số năm hút)
+              <div className="sm:col-span-2">
+                <label htmlFor="profile-pack-years" className="label">
+                  Số gói-năm (số gói/ngày × số năm hút)
                 </label>
                 <input
                   id="profile-pack-years"
@@ -279,12 +255,11 @@ export default function ProfilePage() {
                     setLifestyle({ ...lifestyle, pack_years: e.target.value === "" ? undefined : Number(e.target.value) })
                   }
                   className="input max-w-xs"
-                  placeholder="Ví dụ: 20"
                 />
               </div>
             )}
-
-            {/* Chiều cao & Cân nặng */}
+            {boolField("hepatitis_b_or_c", "Viêm gan B hoặc C mạn tính")}
+            {boolField("cirrhosis", "Bác sĩ từng nói bạn bị xơ gan")}
             <div>
               <label htmlFor="profile-height" className="label">
                 Chiều cao (cm)
@@ -299,10 +274,8 @@ export default function ProfilePage() {
                   setLifestyle({ ...lifestyle, height_cm: e.target.value === "" ? undefined : Number(e.target.value) })
                 }
                 className="input"
-                placeholder="Ví dụ: 165"
               />
             </div>
-
             <div>
               <label htmlFor="profile-weight" className="label">
                 Cân nặng (kg)
@@ -318,34 +291,27 @@ export default function ProfilePage() {
                   setLifestyle({ ...lifestyle, weight_kg: e.target.value === "" ? undefined : Number(e.target.value) })
                 }
                 className="input"
-                placeholder="Ví dụ: 60"
               />
             </div>
-
-            {/* Uống rượu */}
             <div>
               <label htmlFor="profile-alcohol" className="label">
-                Mức độ sử dụng rượu / bia
+                Rượu bia
               </label>
               <select
                 id="profile-alcohol"
                 value={lifestyle.alcohol ?? ""}
-                onChange={(e) =>
-                  setLifestyle({ ...lifestyle, alcohol: (e.target.value || undefined) as Lifestyle["alcohol"] })
-                }
+                onChange={(e) => setLifestyle({ ...lifestyle, alcohol: (e.target.value || undefined) as Lifestyle["alcohol"] })}
                 className="input"
               >
                 <option value="">Chưa cung cấp</option>
                 <option value="none">Không uống</option>
-                <option value="light">Nhẹ (≤ 1 ly tiêu chuẩn/ngày)</option>
-                <option value="heavy">Thường xuyên (≥ 2 ly/ngày)</option>
+                <option value="light">Ít (dưới 1 ly tiêu chuẩn/ngày)</option>
+                <option value="heavy">Thường xuyên (từ 2 ly/ngày)</option>
               </select>
             </div>
-
-            {/* Vận động */}
             <div>
               <label htmlFor="profile-exercise" className="label">
-                Thói quen vận động thể chất
+                Vận động
               </label>
               <select
                 id="profile-exercise"
@@ -357,48 +323,33 @@ export default function ProfilePage() {
               >
                 <option value="">Chưa cung cấp</option>
                 <option value="none">Ít vận động</option>
-                <option value="light">Nhẹ (đi bộ, &lt; 3 buổi/tuần)</option>
-                <option value="regular">Đều đặn (≥ 150 phút/tuần)</option>
+                <option value="light">Nhẹ (dưới 3 buổi/tuần)</option>
+                <option value="regular">Đều đặn (từ 150 phút/tuần)</option>
               </select>
             </div>
           </div>
         </section>
 
-        {/* Lỗi / Thành công */}
-        {error && (
-          <div role="alert" className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs text-red-700 border border-red-200">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+        {error && <InlineError message={error} />}
         {success && (
-          <div role="status" className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800 border border-emerald-200">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>Đã lưu hồ sơ sức khỏe thành công! Đang trở về trang tổng quan…</span>
-          </div>
+          <p role="status" className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Đã lưu thông tin. Đang về trang tổng quan…
+          </p>
         )}
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="btn-secondary"
-          >
-            Hủy bỏ
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={() => router.back()} className="btn-ghost">
+            Huỷ
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn-primary px-6"
-          >
+          <button type="submit" disabled={saving || success} className="btn-primary">
             {saving ? (
               <>
-                <span className="spinner h-4 w-4" />
-                <span>Đang lưu hồ sơ…</span>
+                <span className="spinner" aria-hidden="true" />
+                Đang lưu…
               </>
             ) : (
-              "Lưu hồ sơ sức khỏe"
+              "Lưu thông tin"
             )}
           </button>
         </div>

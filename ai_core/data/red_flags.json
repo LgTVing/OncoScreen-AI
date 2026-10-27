@@ -3,24 +3,64 @@
     "code": "symptom_lump",
     "symptom": "Sờ thấy khối u / cục bất thường",
     "severity": "urgent",
-    "advice": "Hãy đến cơ sở y tế chuyên khoa để được khám và đánh giá trong vài ngày tới."
+    "advice": "Hãy đến cơ sở y tế chuyên khoa để được khám và đánh giá trong vài ngày tới.",
+    "patterns": [
+      "so thay (mot |1 )?(khoi|cuc|u|hach)",
+      "noi (cuc|hach|u)\\b",
+      "(co|thay|phat hien) (mot |1 )?(khoi u|cuc u|cuc cung|khoi cung|cuc la|khoi la)",
+      "\\bu cuc\\b"
+    ]
   },
   {
     "code": "symptom_bleeding",
     "symptom": "Chảy máu bất thường",
     "severity": "urgent",
-    "advice": "Chảy máu bất thường cần được bác sĩ thăm khám sớm. Đừng trì hoãn."
+    "advice": "Chảy máu bất thường cần được bác sĩ thăm khám sớm. Đừng trì hoãn.",
+    "patterns": [
+      "(di ngoai|di cau|di tieu|tieu) ra mau",
+      "phan (co |lan )?mau",
+      "ho ra mau",
+      "ra mau (am dao|bat thuong|sau quan he|ngoai (ky|chu ky) kinh)",
+      "chay mau bat thuong",
+      "num vu (tiet|chay) (dich|mau)"
+    ]
   },
   {
     "code": "symptom_weight_loss",
     "symptom": "Sụt cân nhanh không rõ nguyên nhân",
     "severity": "soon",
-    "advice": "Hãy đặt lịch khám tổng quát trong 1–2 tuần tới để tìm nguyên nhân."
+    "advice": "Hãy đặt lịch khám tổng quát trong 1–2 tuần tới để tìm nguyên nhân.",
+    "patterns": [
+      "sut (\\d+ ?)?(kg|can|ky)",
+      "gay sut"
+    ]
   },
   {
     "code": "symptom_persistent_pain",
     "symptom": "Đau kéo dài trên 3 tuần",
     "severity": "soon",
-    "advice": "Đau kéo dài cần được đánh giá bởi bác sĩ; hãy đi khám trong vài tuần tới."
+    "advice": "Đau kéo dài cần được đánh giá bởi bác sĩ; hãy đi khám trong vài tuần tới.",
+    "patterns": [
+      "dau (keo dai|lien tuc|mai khong (het|khoi)|hoai khong)"
+    ]
+  },
+  {
+    "code": "symptom_bowel_change",
+    "symptom": "Thay đổi thói quen đại tiện kéo dài",
+    "severity": "soon",
+    "advice": "Thay đổi thói quen đại tiện kéo dài cần được bác sĩ tiêu hoá đánh giá trong vài tuần tới.",
+    "patterns": [
+      "(thay doi|roi loan) (thoi quen )?(di ngoai|dai tien|di cau)",
+      "tao bon xen (ke )?(tieu chay|di long)"
+    ]
+  },
+  {
+    "code": "symptom_jaundice",
+    "symptom": "Vàng da, vàng mắt",
+    "severity": "soon",
+    "advice": "Vàng da hoặc vàng mắt cần được khám sớm để tìm nguyên nhân.",
+    "patterns": [
+      "vang (da|mat)\\b"
+    ]
   }
 ]

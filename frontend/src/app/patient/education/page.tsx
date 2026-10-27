@@ -1,79 +1,65 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
-import type { EducationContent } from "@/types/api";
+import { useCallback, useEffect, useState } from "react";
+import { api, type EducationTopic } from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
+import { DEFAULT_DISCLAIMER } from "@/lib/labels";
+import type { CancerType, EducationContent } from "@/types/api";
 import { Disclaimer } from "@/components/Disclaimer";
-import {
-  BookOpen,
-  FileText,
-  ExternalLink,
-  ShieldAlert,
-  CheckCircle2,
-  AlertTriangle,
-} from "@/components/icons";
+import { SourceList } from "@/components/SourceList";
+import { InlineError, SkeletonText } from "@/components/ui";
+import { CheckCircle2, ShieldAlert } from "@/components/icons";
 
-type Topic = { cancer_type: string; title: string };
-
+/** Tài liệu giáo dục theo từng loại ung thư (GET /education, /education/{type}). */
 export default function EducationPage() {
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [activeType, setActiveType] = useState<string>("");
+  const [topics, setTopics] = useState<EducationTopic[]>([]);
+  const [active, setActive] = useState<CancerType | null>(null);
   const [selected, setSelected] = useState<EducationContent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const openTopic = useCallback(async (type: CancerType) => {
+    setActive(type);
+    setLoading(true);
+    setError("");
+    try {
+      setSelected(await api.getEducation(type));
+    } catch (err) {
+      setError(errorMessage(err, "Chưa tải được nội dung tài liệu."));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     api
       .listEducationTopics()
       .then((data) => {
         setTopics(data);
-        if (data.length > 0) {
-          openTopic(data[0].cancer_type);
-        }
+        if (data.length > 0) void openTopic(data[0].cancer_type);
       })
-      .catch(() => setError("Chưa tải được danh mục tài liệu tầm soát."));
-  }, []);
-
-  async function openTopic(cancerType: string) {
-    setActiveType(cancerType);
-    setLoading(true);
-    setError("");
-    try {
-      setSelected(await api.getEducation(cancerType));
-    } catch {
-      setError("Chưa tải được nội dung tài liệu. Vui lòng thử lại.");
-    } finally {
-      setLoading(false);
-    }
-  }
+      .catch((err) => setError(errorMessage(err, "Chưa tải được danh mục tài liệu.")));
+  }, [openTopic]);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      {/* Header */}
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <h1 className="page-title">Thư viện Hướng dẫn Tầm soát</h1>
-          <span className="badge bg-teal-50 text-teal-700 border border-teal-200">
-            <BookOpen className="h-3 w-3" />
-            <span>Y khoa chính thống</span>
-          </span>
-        </div>
-        <p className="page-subtitle">
-          Tổng hợp kiến thức và khuyến nghị tầm soát từ các hiệp hội ung thư uy tín (USPSTF, NCCN, ACS).
-        </p>
+      <header>
+        <h1 className="page-title">Tài liệu tầm soát</h1>
+        <p className="page-subtitle">Kiến thức về dấu hiệu cảnh báo và cách phòng ngừa, tổng hợp từ hướng dẫn chuyên môn.</p>
       </header>
 
-      {/* Topic selection pills */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Chủ đề">
         {topics.map((t) => (
           <button
             key={t.cancer_type}
             type="button"
-            onClick={() => openTopic(t.cancer_type)}
-            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
-              activeType === t.cancer_type
-                ? "bg-teal-700 text-white shadow-sm"
-                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+            role="tab"
+            aria-selected={active === t.cancer_type}
+            onClick={() => void openTopic(t.cancer_type)}
+            className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              active === t.cancer_type
+                ? "bg-teal-700 text-white"
+                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
             }`}
           >
             {t.title}
@@ -81,101 +67,49 @@ export default function EducationPage() {
         ))}
       </div>
 
-      {error && (
-        <div role="alert" className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs text-red-700 border border-red-200">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
+      {error && <InlineError message={error} onRetry={active ? () => void openTopic(active) : undefined} />}
 
       {loading ? (
-        <div className="card-padded space-y-4">
-          <div className="skeleton h-7 w-64" />
-          <div className="skeleton h-4 w-full" />
-          <div className="skeleton h-4 w-5/6" />
-          <div className="skeleton h-24 w-full rounded-xl" />
+        <div className="card-padded">
+          <SkeletonText />
         </div>
       ) : selected ? (
-        <div className="space-y-6">
-          <section className="card-padded space-y-5">
-            <div className="border-b border-slate-100 pb-3">
-              <h2 className="text-xl font-bold text-slate-900">{selected.title}</h2>
-              <span className="text-xs text-slate-500 mt-1 inline-block font-medium">
-                Chuyên đề: <strong className="font-semibold text-slate-700">{selected.cancer_type}</strong>
-              </span>
-            </div>
-
-            {/* Warning Signs & Prevention (nếu có) */}
-            {selected.warning_signs && selected.warning_signs.length > 0 && (
-              <div className="rounded-xl border border-red-100 bg-red-50/50 p-4 space-y-2">
-                <div className="flex items-center gap-2 text-red-800 font-semibold text-xs sm:text-sm">
-                  <ShieldAlert className="h-4 w-4 text-red-600" />
-                  <span>Dấu hiệu cảnh báo cần thăm khám sớm:</span>
-                </div>
-                <ul className="grid sm:grid-cols-2 gap-2 text-xs text-red-900">
-                  {selected.warning_signs.map((sign, idx) => (
-                    <li key={idx} className="flex items-start gap-1.5 bg-white p-2 rounded-lg border border-red-100">
-                      <span className="text-red-500 font-bold">•</span>
-                      <span>{sign}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Body Markdown/Text */}
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-              {selected.body_md}
-            </div>
-
-            {/* Prevention tips */}
-            {selected.prevention_tips && selected.prevention_tips.length > 0 && (
-              <div className="space-y-2 pt-2">
-                <p className="text-xs font-semibold text-slate-700">
-                  Lời khuyên phòng ngừa chủ động:
-                </p>
-                <ul className="grid sm:grid-cols-2 gap-2 text-xs text-slate-700">
-                  {selected.prevention_tips.map((tip, idx) => (
-                    <li key={idx} className="flex items-start gap-2 bg-teal-50/50 p-2.5 rounded-lg border border-teal-100">
-                      <CheckCircle2 className="h-4 w-4 text-teal-700 shrink-0 mt-0.5" />
-                      <span>{tip}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Sources */}
-            {selected.sources.length > 0 && (
-              <div className="border-t border-slate-100 pt-3 space-y-1.5 text-xs text-slate-500">
-                <p className="font-semibold text-slate-700">Tài liệu tham chiếu chuẩn y khoa:</p>
-                <ul className="space-y-1">
-                  {selected.sources.map((source) => (
-                    <li key={source.doc_id} className="flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5 text-teal-600 shrink-0" />
-                      {source.url ? (
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-teal-700 hover:underline font-medium inline-flex items-center gap-1"
-                        >
-                          <span>{source.title}</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <span>{source.title}</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
-        </div>
+        <article className="card-padded space-y-5">
+          <h2 className="text-xl font-bold text-slate-900">{selected.title}</h2>
+          {selected.warning_signs.length > 0 && (
+            <section className="space-y-2 rounded-lg border border-red-100 border-l-4 border-l-red-400 bg-red-50/50 p-4">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-red-900">
+                <ShieldAlert className="h-4 w-4 text-red-600" aria-hidden="true" />
+                Dấu hiệu nên đi khám sớm, không chờ lịch tầm soát
+              </h3>
+              <ul className="grid gap-2 text-sm text-red-950 sm:grid-cols-2">
+                {selected.warning_signs.map((sign) => (
+                  <li key={sign} className="rounded-md border border-red-100 bg-white p-2">
+                    {sign}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <p className="max-w-prose whitespace-pre-wrap text-base leading-relaxed text-slate-700">{selected.body_md}</p>
+          {selected.prevention_tips.length > 0 && (
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold text-slate-800">Phòng ngừa chủ động</h3>
+              <ul className="grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+                {selected.prevention_tips.map((tip) => (
+                  <li key={tip} className="flex items-start gap-2 rounded-md border border-teal-100 bg-teal-50/50 p-2.5">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" aria-hidden="true" />
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <SourceList sources={selected.sources} defaultOpen />
+        </article>
       ) : null}
 
-      <Disclaimer text="Tài liệu chỉ mang tính chất tham khảo giáo dục sức khỏe, không thay thế chẩn đoán hoặc chỉ định lâm sàng của bác sĩ." />
+      <Disclaimer text={DEFAULT_DISCLAIMER} />
     </div>
   );
 }

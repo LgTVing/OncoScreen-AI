@@ -11,9 +11,12 @@ ai_core/data/
 │   └── source.yaml.example         # Mẫu ghi xuất xứ, phiên bản, giấy phép
 ├── guidelines/                     # Bản Markdown đã biên tập; đầu vào hiện tại của RAG
 │   ├── README.md                   # Hướng dẫn thu thập và chuẩn hóa (tài liệu này)
-│   └── breast_uspstf_2024.md       # Ví dụ guideline đã chuẩn hóa
-├── questionnaire.json              # Câu hỏi đánh giá nguy cơ
-├── red_flags.json                  # Quy tắc cảnh báo dấu hiệu nguy hiểm
+│   └── <cancer_type>_<source>_<year>.md   # 8 bản tóm tắt đã chuẩn hóa
+├── questionnaire.json              # Bảng hỏi nhanh của Navigator
+├── red_flags.json                  # Quy tắc cảnh báo (mã + pattern văn bản tự do)
+├── screening_rules.json            # Luật tầm soát → doc_id/section của guideline
+├── services.json                   # Danh mục dịch vụ đặt lịch (mô phỏng)
+├── eval/navigator_cases.json       # Golden set đánh giá
 └── vector_store/                   # Chroma sinh khi ingest; không commit
 ```
 
@@ -148,4 +151,4 @@ Repo hiện **không có crawler web**. `ai_core/scripts/ingest.py` chỉ đọc
 - [ ] Có ngày truy cập/kiểm tra và ghi chú giấy phép; không commit nội dung không được phép phân phối.
 - [ ] Người khác đã rà lại nội dung y khoa trước khi dùng cho agent thật.
 
-**Giới hạn hiện tại:** retriever lọc giới trước truy vấn, sau đó kiểm tra tuổi và mức nguy cơ của kết quả. Kho guideline mới có một file mẫu ngắn; khi không có nguồn phù hợp, agent ghi thiếu căn cứ và không tạo plan. Việc ingest thành công không đồng nghĩa tài liệu đã đủ cho mọi hồ sơ; mọi plan vẫn phải được bác sĩ xem xét.
+**Giới hạn hiện tại:** kho có 8 bản tóm tắt (vú, cổ tử cung ×2, đại trực tràng, phổi, tuyến tiền liệt, gan, tổng quan WHO), tất cả `review_status: draft`. Retriever lọc metadata (giới, tuổi, loại ung thư) rồi kết hợp BM25 và vector bằng RRF; chưa ingest thì chỉ dùng BM25. Mốc tầm soát cho người dùng lấy từ `../screening_rules.json`, mỗi luật trỏ tới `doc_id` + `section` ở đây — đổi tên file hoặc heading phải cập nhật luật (test `test_eligibility.py` sẽ báo). Mọi kế hoạch cá nhân vẫn phải được bác sĩ duyệt.

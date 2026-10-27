@@ -7,6 +7,10 @@ min_age: 40
 max_age: 74
 risk_level: average
 language: vi
+jurisdiction: US
+publication_date: "2024-04-30"
+document_type: guideline
+review_status: draft
 ---
 
 ## Khuyến nghị
@@ -22,3 +26,4 @@ hoặc tiền sử ung thư vú — nhóm này cần kế hoạch riêng do bác
 
 ## Giới hạn áp dụng
 Đây là khuyến nghị sàng lọc cho người không có triệu chứng; không dùng để diễn giải triệu chứng hoặc chẩn đoán.
+Người có mẹ, chị em gái hoặc con gái mắc ung thư vú nên trao đổi với bác sĩ để đánh giá nguy cơ và thời điểm bắt đầu phù hợp.

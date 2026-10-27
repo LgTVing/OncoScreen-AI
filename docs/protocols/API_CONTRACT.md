@@ -2,132 +2,123 @@
 
 **Base URL:** `http://localhost:8000/api/v1` · **Auth:** `Authorization: Bearer <JWT>` · **Content-Type:** `application/json`
 **Nguồn sự thật:** file này + `frontend/src/types/api.ts` (mirror). Backend `app/schemas/*` phải khớp. Swagger tự sinh tại `/docs`.
-**Chủ sở hữu:** Backend. Frontend tiêu thụ. Muốn đổi → PR tag cả team.
+**Chủ sở hữu:** Backend. Frontend tiêu thụ. Muốn đổi → PR `contract/*`, tag cả team.
 
 ## Quy ước chung
 - ID: UUID string. Ngày: ISO-8601 (`2026-09-14`, `2026-09-14T08:00:00Z`).
-- Lỗi: `{ "detail": string }` với HTTP status chuẩn (400 validation, 401 chưa đăng nhập, 403 sai role, 404, 409 sai trạng thái, 502 lỗi AI).
-- Phân trang danh sách: `?page=1&page_size=20` → `{ items: [], total, page, page_size }`.
-- Kiểu dữ liệu `ScreeningPlan`, `RiskAssessment`, `RedFlagResult`, `Question`, `EducationContent` **giống hệt** `AI_CORE_CONTRACT.md` (backend truyền qua nguyên vẹn).
+- Lỗi: `{ "detail": string }` (400 validation, 401 chưa đăng nhập/sai token tư vấn, 403 sai role, 404, 409 sai trạng thái, 502 lỗi AI).
+- Phân trang: `?page=1&page_size=20` → `{ items, total, page, page_size }`.
+- Kiểu AI (`NavigatorReply`, `ClinicalBrief`, `ScreeningPlan`, `QuestionAnswer`…) **giống hệt** `AI_CORE_CONTRACT.md`.
 
-## 1. Auth
+## Hành trình người dùng ↔ endpoint
+
+| Giai đoạn | Người dùng | Endpoint |
+|---|---|---|
+| 1. Tìm hiểu (ẩn danh) | Người dân | `/navigator/*`, `/services`, `/education/*` |
+| 2. Tạo tài khoản & đặt lịch | Bệnh nhân | `/auth/register` (kèm phiên tư vấn), `/appointments` |
+| 3. Khám | Bác sĩ | `/doctor/appointments/*`, `/doctor/encounters/*`, `/doctor/patients/*` |
+| 4. Theo dõi | Bệnh nhân | `/patients/me/record`, `/encounters/{id}`, `/reminders` |
+
+## 1. Navigator — công khai, không cần đăng nhập
+
+| Method | Path | Auth | Body | Response |
+|---|---|---|---|---|
+| GET | `/navigator/questionnaire` | — | — | `Questionnaire` (bảng hỏi nhanh) |
+| POST | `/navigator/consultations` | tuỳ chọn Bearer (patient) | — | `201 ConsultationCreated` |
+| GET | `/navigator/consultations/{id}` | `X-Consult-Token` hoặc Bearer chủ sở hữu | — | `ConsultationOut` |
+| POST | `/navigator/consultations/{id}/messages` | `X-Consult-Token` hoặc Bearer chủ sở hữu | `NavigatorMessageIn` | `ConsultationOut` (`last_reply` là lượt mới nhất) |
+| POST | `/navigator/consultations/{id}/claim` | Bearer patient + `X-Consult-Token` | — | `ConsultationOut` (gắn phiên vào tài khoản đã có) |
+| GET | `/services` | — | — | `ServiceOut[]` (danh mục dịch vụ mô phỏng) |
+| GET | `/education` | — | — | `{ cancer_type, title }[]` |
+| GET | `/education/{cancer_type}` | — | — | `EducationContent` |
+
+```
+NavigatorMessageIn  = { message?: string (≤2000), answers?: Answer[] }   // ít nhất một trong hai
+ConsultationCreated = { access_token: string, consultation: ConsultationOut }   // token chỉ trả một lần
+ConsultationOut     = { id, linked:boolean, intake: IntakeProfile, messages: {role,content,at}[],
+                        last_reply: NavigatorReply|null, created_at, updated_at }
+```
+
+Quy tắc:
+- Token tư vấn là chuỗi ngẫu nhiên; backend chỉ lưu SHA-256. Sai/thiếu token → 401. Phiên đã gắn tài khoản chỉ chủ sở hữu (Bearer) truy cập.
+- `NavigatorReply.trace_events` luôn `[]` ở API công khai; trace đầy đủ lưu ở `agent_runs` (bác sĩ xem).
+- `next_action`: `continue_chat` → tiếp tục hỏi; `suggest_booking` → FE hiển thị CTA "Tạo tài khoản để đặt lịch" với `booking_hint.service_codes`; `urgent_care` → FE hiển thị cảnh báo đỏ + CTA đặt lịch ưu tiên + gọi 115 khi nặng.
+- Red-flag đã ghi nhận trong phiên không bị gỡ ở các lượt sau (fail-safe).
+- Tối đa 40 lượt/phiên (429 khi vượt) để hạn chế lạm dụng.
+
+## 2. Auth
+
 | Method | Path | Role | Body | Response |
 |---|---|---|---|---|
-| POST | `/auth/register` | public | `{ email, password, full_name, role: "patient" }` | `201 UserOut`; role `doctor` trả 403 |
+| POST | `/auth/register` | public | `RegisterIn` | `201 UserOut`; role `doctor` → 403 |
 | POST | `/auth/login` | public | `{ email, password }` | `{ access_token, token_type:"bearer", user: UserOut }` |
 | GET | `/auth/me` | any | — | `UserOut` |
 
-`UserOut = { id, email, full_name, role, created_at }`
+`RegisterIn = { email, password (≥6), full_name, role:"patient", consultation_id?, consultation_token? }`.
+Khi có phiên tư vấn hợp lệ, chưa gắn: backend gắn phiên vào tài khoản, **điền sẵn hồ sơ** (tuổi, giới, tiền sử gia đình, hút thuốc, viêm gan) nếu đủ tuổi + giới, và ghi các mốc `account.created`, `consult.summary`, `red_flag.detected` vào hồ sơ xuyên suốt. Token sai → 400.
 
-## 2. Patient profile
-| Method | Path | Role | Body | Response |
-|---|---|---|---|---|
-| GET | `/patients/me/profile` | patient | — | `PatientProfileOut` (404 nếu chưa có) |
-| PUT | `/patients/me/profile` | patient | `PatientProfileIn` | `PatientProfileOut` |
+## 3. Bệnh nhân
 
-```
-PatientProfileIn  = { age:int, gender:"male"|"female"|"other", genetics_history:string[], lifestyle:{ smoking?:bool, pack_years?:number, alcohol?:"none"|"light"|"heavy", bmi?:number, exercise?:"none"|"light"|"regular", ... } }
-PatientProfileOut = PatientProfileIn & { user_id, lifestyle_score:number|null, updated_at }
-```
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/patients/me/profile` | — | `PatientProfileOut` (404 nếu chưa có) |
+| PUT | `/patients/me/profile` | `PatientProfileIn` | `PatientProfileOut` (ghi mốc `profile.updated`) |
+| GET | `/patients/me/record` | — | `PatientRecordOut` (góc nhìn bệnh nhân) |
+| POST | `/appointments` | `AppointmentIn` | `201 AppointmentOut` |
+| GET | `/appointments` | — | `AppointmentOut[]` (của mình, mới nhất trước) |
+| POST | `/appointments/{id}/cancel` | — | `AppointmentOut` (409 nếu đã completed/cancelled) |
+| GET | `/encounters/{id}` | — | `EncounterOut` (góc nhìn bệnh nhân) |
+| POST | `/encounters/{id}/questions` | `{ question (1–1000) }` | `QuestionAnswer` (409 nếu chưa finalized) |
+| GET | `/reminders` | `?status=` | `ReminderOut[]` |
+| POST | `/reminders/{id}/complete` | `{ completed_at?: date }` | `ReminderOut` |
 
-## 3. Screening sessions (patient)
-| Method | Path | Role | Body | Response |
-|---|---|---|---|---|
-| POST | `/sessions` | patient | — | `201 SessionOut` (status `collecting`, kèm `questionnaire`) |
-| GET | `/sessions` | patient | `?status=` | `Page<SessionSummary>` (chỉ của mình) |
-| GET | `/sessions/{id}` | patient/doctor | — | `SessionOut` (xem quy tắc lộ dữ liệu bên dưới) |
-| POST | `/sessions/{id}/answers` | patient | `{ answers: [{question_id, value}] }` | `SessionOut` — status có thể chuyển sang `red_flag` hoặc `pending_review` (409 nếu session không ở `collecting`) |
-| POST | `/sessions/{id}/questions` | patient sở hữu phiên đã duyệt | `{ question: string }` (1–1000 ký tự) | `QuestionAnswer` |
+Quy tắc đặt lịch:
+- `service_code` phải có trong `/services`; `preferred_date` ≥ hôm nay; tối đa 3 lịch `requested|confirmed` đồng thời.
+- `priority = urgent` khi `consultation_id` (của chính bệnh nhân) có red-flag hoặc dịch vụ là `oncology_priority`.
 
-```
-SessionSummary = { id, patient_id, patient_name, status, created_at, updated_at, has_red_flag:boolean }
-SessionOut = SessionSummary & {
-  questionnaire: Questionnaire | null,     // khi collecting
-  answers: Answer[],
-  red_flag: RedFlagResult | null,          // khi red_flag
-  risk_assessment: RiskAssessment | null,  // doctor: luôn; patient: chỉ khi approved
-  draft_plan: ScreeningPlan | null,        // CHỈ doctor thấy
-  final_plan: ScreeningPlan | null,        // patient chỉ thấy khi approved
-  doctor_note: string | null,
-  reviewed_by: UserOut | null,
-  reviewed_at: string | null,
-  disclaimer: string,                      // luôn có
-  reminders: ReminderOut[],                // khi approved
-  trace_id: string | null,                 // chỉ doctor
-  trace_events: {node:string,status:string,duration_ms?:number,source_count?:number,has_plan?:boolean}[] // chỉ doctor
-}
-```
+**Quy tắc lộ dữ liệu (bắt buộc, có test):**
+- Bệnh nhân **không bao giờ** thấy `brief`, `draft_plan`, `clinical_notes`, trace.
+- `final_plan`, `conclusion`, `reminders` của encounter chỉ hiện khi `status=finalized`.
+- Bệnh nhân chỉ xem dữ liệu của mình (khác chủ → 404).
 
-**Quy tắc lộ dữ liệu (bắt buộc, test bắt buộc):**
-- role=patient: `draft_plan` luôn `null`; `final_plan`/`risk_assessment` chỉ khác `null` khi `status=approved`.
-- role=doctor: thấy tất cả.
-- Phiên `pending_review` có thể có `draft_plan=null` khi thiếu guideline phù hợp; bệnh nhân chỉ thấy trạng thái chờ. Phiên `approved` có thể có `final_plan=null` kèm ghi chú của bác sĩ.
-- `PlanItem.next_due` có thể `null`; lúc đó không tạo reminder.
+## 4. Bác sĩ — Clinical Copilot & HITL
 
-**Quy tắc gửi answers:**
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/doctor/appointments` | `?status=&page=` | `Page<AppointmentOut>` (urgent trước, rồi theo ngày) |
+| POST | `/doctor/appointments/{id}/confirm` | `{ scheduled_date }` | `AppointmentOut` (chỉ từ `requested`) |
+| POST | `/doctor/appointments/{id}/start` | — | `EncounterOut` (tạo encounter + chạy Copilot brief; idempotent) |
+| GET | `/doctor/patients` | `?q=` | `PatientListItem[]` |
+| GET | `/doctor/patients/{id}/record` | — | `PatientRecordOut` (đầy đủ) |
+| GET | `/doctor/encounters/{id}` | — | `EncounterOut` (đầy đủ) |
+| POST | `/doctor/encounters/{id}/brief` | — | `EncounterOut` (sinh lại brief từ hồ sơ mới nhất; 409 nếu finalized) |
+| POST | `/doctor/encounters/{id}/copilot` | `{ question, history: ChatTurn[] ≤8 }` | `QuestionAnswer` |
+| POST | `/doctor/encounters/{id}/finalize` | `FinalizeEncounterIn` | `EncounterOut` (409 nếu đã finalized) |
+| GET | `/doctor/metrics` | — | `MetricsOut` |
+| GET | `/doctor/agent-runs` | `?agent=&page=` | `Page<AgentRunOut>` |
+| GET | `/doctor/reminders/due` | — | `ReminderOut[]` |
 
-- `POST /sessions/{id}/answers` là thao tác merge theo `question_id`; gửi lại cùng một
-  `question_id` sẽ ghi đè câu trả lời cũ.
-- Có thể gửi từng phần. Khi còn câu bắt buộc đang hiển thị, response giữ `status=collecting`.
-- Red-flag được kiểm tra trước việc kiểm tra đủ câu và trước khi gọi agent tạo kế hoạch.
-- Khi chuyển sang `red_flag` hoặc `pending_review`, session không nhận answers tiếp và trả HTTP 409.
+`FinalizeEncounterIn = { conclusion (bắt buộc), clinical_notes?, final_plan?: ScreeningPlan|null, use_draft?: boolean }`
 
-## 4. Doctor — HITL
-| Method | Path | Role | Body | Response |
-|---|---|---|---|---|
-| GET | `/doctor/sessions` | doctor | `?status=pending_review&page=` | `Page<SessionSummary>` (tất cả bệnh nhân) |
-| GET | `/doctor/patients/{patient_id}` | doctor | — | `{ user: UserOut, profile: PatientProfileOut|null, sessions: SessionSummary[] }` |
-| GET | `/doctor/metrics` | doctor | — | `{ sessions: Record<string,number>, pending_without_plan:number, questions_asked:number }` |
-| POST | `/sessions/{id}/review` | doctor | `ReviewIn` | `SessionOut` (409 nếu status ≠ `pending_review`) |
-
-```
-ReviewIn = {
-  action: "approve" | "reject",
-  final_plan?: ScreeningPlan,   // approve: nếu bỏ trống → dùng draft_plan nguyên; nếu gửi → là bản bác sĩ đã sửa
-  note?: string                 // reject: bắt buộc
-}
-```
-Approve → backend: `status=approved`, lưu `final_plan` nếu có, `doctor_id`, `reviewed_at`, ghi `audit_logs`, sinh `reminders` chỉ cho item có ngày hẹn.
-
-**Quy tắc ReviewIn:**
-
-- `approve`: `final_plan` có thể bỏ trống để dùng nguyên `draft_plan`; nếu gửi lên thì phải
-  đúng schema `ScreeningPlan` và vẫn phải có source cho từng item.
-- Nếu cả `draft_plan` và `final_plan` đều rỗng, bác sĩ có thể duyệt kết luận thiếu căn cứ nhưng bắt buộc ghi `note`; không tạo reminder.
-- `reject`: bắt buộc `note` không rỗng; không tạo reminder.
-- Review lại session không còn `pending_review` trả HTTP 409.
+Quy tắc HITL:
+- Không gửi `final_plan` và `use_draft != false` → dùng `draft_plan` của Copilot. `final_plan: null` hoặc `use_draft=false` mà không gửi plan → kết thúc khám không lập kế hoạch (vẫn bắt buộc `conclusion`).
+- Plan gửi lên phải qua `validate_plan` (mỗi item có nguồn, không có ngôn ngữ chẩn đoán) → vi phạm 400.
+- Plan khác bản nháp → audit `plan.edit` (before/after). Reminder chỉ sinh cho item có `next_due`.
+- Finalize → appointment `completed`, mốc `encounter.finalized` (kèm `cancer_types`) vào hồ sơ; bệnh nhân thấy kết luận + kế hoạch.
 
 ## 5. Reminders
-| Method | Path | Role | Body | Response |
-|---|---|---|---|---|
-| GET | `/reminders` | patient | `?status=` | `ReminderOut[]` (của mình, sort due_date) |
-| POST | `/reminders/{id}/complete` | patient | `{ completed_at?: date }` | `ReminderOut` |
-| GET | `/doctor/reminders/due` | doctor | — | `ReminderOut[]` (tất cả reminders `due`) |
+`ReminderOut = { id, encounter_id, patient_id, cancer_type, method, due_date, status, completed_at, message }`.
+Scheduler chuyển `scheduled → due` khi tới hạn và sinh lời nhắc. Hoàn thành → tạo chu kỳ kế tiếp theo `interval_months` của kế hoạch đã duyệt (không tạo trùng); ghi mốc `reminder.done`.
 
-`ReminderOut = { id, session_id, patient_id, cancer_type, method, due_date, status:"scheduled"|"due"|"done"|"skipped", completed_at, message }`
-Khi bệnh nhân hoàn thành một reminder, backend tính ngày của chu kỳ kế tiếp từ `completed_at` và `interval_months` trong kế hoạch đã duyệt, rồi tạo một reminder mới. Gọi hoàn thành lại cùng reminder không tạo trùng.
+## 6. Health
+`GET /health` → `{ status:"ok", agent:"mock"|"real", db:"ok" }`
 
-## 6. Education
-| Method | Path | Role | Response |
-|---|---|---|---|
-| GET | `/education` | any | `{ cancer_type, title }[]` |
-| GET | `/education/{cancer_type}` | any | `EducationContent` |
-
-## 6.1 Hỏi đáp bệnh nhân
-
-`POST /sessions/{id}/questions` chỉ cho bệnh nhân sở hữu phiên `approved`. Kết quả gồm `answer`, `sources`, `disclaimer`, `trace_id`, `insufficient_evidence`. Agent giải thích kế hoạch đã duyệt; khi không có căn cứ trả `insufficient_evidence=true`. Câu hỏi và câu trả lời không được lưu trong audit log; log chỉ ghi trace ID, số nguồn và cờ thiếu căn cứ.
-
-`POST /chat` cho bệnh nhân đã đăng nhập, không cần phiên tầm soát. Body: `{ question: string (1–1000 ký tự), cancer_type: CancerType, history: ChatTurn[] (tối đa 8 lượt) }`, trong đó `ChatTurn = { role: "user"|"assistant", content: string (1–1000 ký tự) }`. Response là `QuestionAnswer`. Chat chỉ trả lời kiến thức chung từ guideline đã biên tập; thiếu nguồn hoặc câu hỏi cần bác sĩ đánh giá trả `insufficient_evidence=true`. Lịch sử chat chỉ giữ ở trình duyệt đến khi tải lại trang; backend chỉ lưu metadata vào audit log, không lưu nội dung câu hỏi hoặc câu trả lời.
-
-## 7. Health
-| GET | `/health` | public | `{ status:"ok", agent:"mock"|"real", db:"ok" }` |
-
-## Ví dụ luồng FE gọi
+## Ví dụ luồng FE
 ```
-login → PUT profile → POST /sessions → (lặp) POST /sessions/{id}/answers
-  ├─ status=red_flag      → hiển thị RedFlagAlert, dừng
-  └─ status=pending_review→ hiển thị "Đang chờ bác sĩ duyệt", poll GET /sessions/{id} mỗi 10s (hoặc nút refresh)
-doctor: GET /doctor/sessions?status=pending_review → GET /sessions/{id} → POST /sessions/{id}/review
-patient: GET /sessions/{id} (approved) → hiển thị final_plan + disclaimer + reminders
+(ẩn danh) POST /navigator/consultations → lưu {id, access_token} ở localStorage
+          POST /navigator/consultations/{id}/messages {message | answers}  (lặp)
+            └ next_action = suggest_booking | urgent_care → CTA → /register?consult=<id>
+POST /auth/register {…, consultation_id, consultation_token} → login → POST /appointments {service_code, preferred_date, consultation_id}
+doctor: GET /doctor/appointments → confirm → start (brief) → copilot → finalize
+patient: GET /patients/me/record → GET /encounters/{id} (finalized) → POST /encounters/{id}/questions
 ```
-Realtime (WebSocket) là **tuỳ chọn** — polling đủ cho MVP.

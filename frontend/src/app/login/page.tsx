@@ -1,298 +1,179 @@
 "use client";
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import Link from "next/link";
+import { FormEvent, Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { api, USE_MOCK } from "@/lib/api";
+import { homeFor, safeNext, saveSession } from "@/lib/auth";
+import { anonymousConsultToken, clearConsult } from "@/lib/consult";
+import { errorMessage } from "@/lib/errors";
 import type { Role } from "@/types/api";
-import { homeFor, saveSession } from "@/lib/auth";
-import { HeartPulse, User, Activity, AlertTriangle, CheckCircle2 } from "@/components/icons";
+import { Brand } from "@/components/Brand";
+import { InlineError } from "@/components/ui";
+import { Activity, Info, LogIn, User } from "@/components/icons";
 
-type Tab = "login" | "register";
-
-const DEMO_ACCOUNTS = [
-  { label: "Bệnh nhân demo (Lan)", email: "lan@demo.vn", password: "123456", role: "patient" as Role },
-  { label: "Bác sĩ demo", email: "doctor@demo.vn", password: "123456", role: "doctor" as Role },
+const DEMO_ACCOUNTS: Array<{ label: string; email: string; role: Role }> = [
+  { label: "Bệnh nhân đã khám (Lan)", email: "lan@demo.vn", role: "patient" },
+  { label: "Bệnh nhân chờ khám (Minh)", email: "minh@demo.vn", role: "patient" },
+  { label: "Bác sĩ", email: "doctor@demo.vn", role: "doctor" },
 ];
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("login");
+  const params = useSearchParams();
+  const consultId = params.get("consult");
+  const next = safeNext(params.get("next"));
 
-  // --- Login state ---
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [loginLoading, setLoginLoading] = useState(false);
-
-  // --- Register state ---
-  const [regFullName, setRegFullName] = useState("");
-  const [regEmail, setRegEmail] = useState("");
-  const [regPassword, setRegPassword] = useState("");
-  const [regError, setRegError] = useState<string | null>(null);
-  const [regLoading, setRegLoading] = useState(false);
-  const [regSuccess, setRegSuccess] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
-    setLoginError(null);
-    setLoginLoading(true);
+    setError(null);
+    setLoading(true);
     try {
-      const res = await api.login({ email: loginEmail, password: loginPassword });
+      const res = await api.login({ email: email.trim(), password });
       saveSession(res.access_token, res.user);
-      router.replace(homeFor(res.user.role));
+      if (res.user.role === "patient" && consultId) {
+        const token = anonymousConsultToken(consultId);
+        if (token) {
+          try {
+            await api.claimConsultation(consultId, token);
+            clearConsult(null);
+          } catch {
+            /* phiên không gắn được (đã gắn / hết hạn): vẫn cho đặt lịch bình thường */
+          }
+        }
+        router.replace(`/patient/book?consult=${encodeURIComponent(consultId)}`);
+        return;
+      }
+      const home = homeFor(res.user.role);
+      router.replace(next && next.startsWith(home) ? next : home);
     } catch (err) {
-      setLoginError(err instanceof Error ? err.message : "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
-    } finally {
-      setLoginLoading(false);
+      setError(errorMessage(err, "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin."));
+      setLoading(false);
     }
   }
 
-  async function handleRegister(e: FormEvent) {
-    e.preventDefault();
-    setRegError(null);
-    setRegLoading(true);
-    try {
-      await api.register({
-        email: regEmail,
-        password: regPassword,
-        full_name: regFullName,
-        role: "patient",
-      });
-      setRegSuccess(true);
-      setTimeout(() => {
-        setTab("login");
-        setLoginEmail(regEmail);
-        setLoginPassword(regPassword);
-        setRegSuccess(false);
-        setRegFullName("");
-        setRegEmail("");
-        setRegPassword("");
-      }, 1200);
-    } catch (err) {
-      setRegError(err instanceof Error ? err.message : "Đăng ký thất bại. Vui lòng thử lại.");
-    } finally {
-      setRegLoading(false);
-    }
-  }
-
-  function fillDemo(account: (typeof DEMO_ACCOUNTS)[0]) {
-    setLoginEmail(account.email);
-    setLoginPassword(account.password);
-    setLoginError(null);
-    setTab("login");
-  }
+  const registerHref = consultId ? `/register?consult=${encodeURIComponent(consultId)}` : "/register";
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-4 sm:p-6">
-      <div className="w-full max-w-md space-y-6">
-        {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-700 text-white shadow-md shadow-teal-700/20">
-            <HeartPulse className="h-8 w-8" />
+    <div className="w-full max-w-md space-y-6">
+      <div className="space-y-1 text-center">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Đăng nhập</h1>
+        <p className="text-sm text-slate-500">Bệnh nhân và bác sĩ dùng chung cổng đăng nhập.</p>
+      </div>
+
+      {consultId && (
+        <p className="flex items-start gap-2 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900" role="note">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          Sau khi đăng nhập, cuộc trò chuyện vừa rồi sẽ được gắn vào hồ sơ của bạn để đặt lịch.
+        </p>
+      )}
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="label" htmlFor="login-email">
+              Email
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="ten@example.vn"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input"
+            />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            OncoScreen <span className="text-teal-700">AI</span>
-          </h1>
-          <p className="text-sm text-slate-500 max-w-xs mx-auto leading-relaxed">
-            Hệ thống hỗ trợ tầm soát ung thư thông minh có bác sĩ phê duyệt
-          </p>
-        </div>
-
-        {/* Card Form */}
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-sm">
-          {/* Tab Switcher */}
-          <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
-            <button
-              type="button"
-              onClick={() => {
-                setTab("login");
-                setLoginError(null);
-              }}
-              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
-                tab === "login"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Đăng nhập
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTab("register");
-                setRegError(null);
-              }}
-              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-all ${
-                tab === "register"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Tạo tài khoản
-            </button>
+          <div>
+            <label className="label" htmlFor="login-password">
+              Mật khẩu
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input"
+            />
           </div>
+          {error && <InlineError message={error} />}
+          <button type="submit" disabled={loading} className="btn-primary w-full">
+            {loading ? (
+              <>
+                <span className="spinner" aria-hidden="true" />
+                Đang xử lý…
+              </>
+            ) : (
+              <>
+                <LogIn className="h-4 w-4" aria-hidden="true" />
+                Đăng nhập
+              </>
+            )}
+          </button>
+        </form>
 
-          {/* Form Content */}
-          {tab === "login" ? (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="label" htmlFor="login-email">
-                  Địa chỉ Email
-                </label>
-                <input
-                  id="login-email"
-                  type="email"
-                  required
-                  placeholder="name@example.vn"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  className="input"
-                />
-              </div>
+        <p className="mt-5 text-center text-sm text-slate-600">
+          Chưa có tài khoản?{" "}
+          <Link href={registerHref} className="font-semibold text-teal-700 underline-offset-2 hover:underline">
+            Đăng ký bệnh nhân
+          </Link>
+        </p>
 
-              <div>
-                <label className="label" htmlFor="login-password">
-                  Mật khẩu
-                </label>
-                <input
-                  id="login-password"
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  className="input"
-                />
-              </div>
-
-              {loginError && (
-                <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>{loginError}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loginLoading}
-                className="btn-primary w-full py-2.5 text-sm font-semibold"
-              >
-                {loginLoading ? (
-                  <>
-                    <span className="spinner h-4 w-4" />
-                    <span>Đang xác thực…</span>
-                  </>
-                ) : (
-                  "Đăng nhập hệ thống"
-                )}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div>
-                <label className="label" htmlFor="reg-name">
-                  Họ và tên
-                </label>
-                <input
-                  id="reg-name"
-                  type="text"
-                  required
-                  placeholder="Nguyễn Văn A"
-                  value={regFullName}
-                  onChange={(e) => setRegFullName(e.target.value)}
-                  className="input"
-                />
-              </div>
-
-              <div>
-                <label className="label" htmlFor="reg-email">
-                  Địa chỉ Email
-                </label>
-                <input
-                  id="reg-email"
-                  type="email"
-                  required
-                  placeholder="name@example.vn"
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  className="input"
-                />
-              </div>
-
-              <div>
-                <label className="label" htmlFor="reg-password">
-                  Mật khẩu
-                </label>
-                <input
-                  id="reg-password"
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder="Tối thiểu 6 ký tự"
-                  value={regPassword}
-                  onChange={(e) => setRegPassword(e.target.value)}
-                  className="input"
-                />
-              </div>
-
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Tài khoản đăng ký mới dành cho Bệnh nhân. Bác sĩ và chuyên viên y tế được cấp tài khoản qua Quản trị viên.
-              </p>
-
-              {regSuccess && (
-                <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>Đăng ký thành công! Đang chuyển sang màn đăng nhập…</span>
-                </div>
-              )}
-
-              {regError && (
-                <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>{regError}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={regLoading || regSuccess}
-                className="btn-primary w-full py-2.5 text-sm font-semibold"
-              >
-                {regLoading ? (
-                  <>
-                    <span className="spinner h-4 w-4" />
-                    <span>Đang tạo tài khoản…</span>
-                  </>
-                ) : (
-                  "Tạo tài khoản bệnh nhân"
-                )}
-              </button>
-            </form>
-          )}
-
-          {/* Quick Demo Access */}
-          <div className="mt-8 border-t border-slate-100 pt-5">
-            <p className="text-xs font-medium text-slate-500 text-center mb-3">
-              Tài khoản dùng thử nhanh
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {USE_MOCK && (
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <p className="mb-3 text-center text-xs font-medium text-slate-500">Tài khoản demo (mật khẩu 123456)</p>
+            <div className="grid grid-cols-1 gap-2">
               {DEMO_ACCOUNTS.map((acc) => (
                 <button
                   key={acc.email}
                   type="button"
-                  onClick={() => fillDemo(acc)}
-                  className="flex items-center gap-2 rounded-lg border border-slate-200 p-2.5 text-left text-xs font-medium text-slate-700 hover:border-teal-500 hover:bg-teal-50/50 transition-colors"
+                  onClick={() => {
+                    setEmail(acc.email);
+                    setPassword("123456");
+                    setError(null);
+                  }}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:border-teal-500 hover:bg-teal-50"
                 >
                   {acc.role === "doctor" ? (
-                    <Activity className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <Activity className="h-4 w-4 shrink-0 text-indigo-600" aria-hidden="true" />
                   ) : (
-                    <User className="h-4 w-4 text-teal-600 shrink-0" />
+                    <User className="h-4 w-4 shrink-0 text-teal-600" aria-hidden="true" />
                   )}
                   <span className="truncate">{acc.label}</span>
+                  <span className="ml-auto truncate text-xs text-slate-500">{acc.email}</span>
                 </button>
               ))}
             </div>
           </div>
-        </div>
+        )}
+      </div>
+
+      <p className="text-center text-sm">
+        <Link href="/" className="font-medium text-slate-600 underline-offset-2 hover:text-teal-700 hover:underline">
+          Quay lại trò chuyện với trợ lý
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <main className="flex min-h-screen flex-col bg-slate-50">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center px-4 sm:px-6">
+        <Brand />
+      </div>
+      <div className="flex flex-1 items-start justify-center px-4 pb-10 pt-4 sm:pt-10">
+        <Suspense fallback={<div className="skeleton h-96 w-full max-w-md rounded-xl" />}>
+          <LoginForm />
+        </Suspense>
       </div>
     </main>
   );

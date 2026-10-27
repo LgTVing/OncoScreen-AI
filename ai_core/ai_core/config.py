@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     embedding_api_key: str | None = None
     vector_store_dir: Path = DATA_DIR / "vector_store"
+    rag_top_k: int = 6
 
     use_mock_agent: bool = True
 

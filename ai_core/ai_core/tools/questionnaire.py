@@ -1,4 +1,4 @@
-"""Tool: risk-assessment questionnaire — đọc data/questionnaire.json, lọc theo hồ sơ, tính câu còn thiếu."""
+"""Tool: bảng hỏi sàng lọc nhanh của Navigator — đọc data/questionnaire.json, kiểm tra depends_on."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ import json
 from functools import lru_cache
 
 from ai_core.config import DATA_DIR
-from ai_core.schemas import Answer, PatientProfile, Question, Questionnaire
+from ai_core.schemas import Answer, Questionnaire
 
 
 @lru_cache(maxsize=1)
-def _load() -> Questionnaire:
+def load_questionnaire() -> Questionnaire:
     raw = json.loads((DATA_DIR / "questionnaire.json").read_text(encoding="utf-8"))
     questionnaire = Questionnaire.model_validate(raw)
     _validate_questionnaire(questionnaire)
@@ -37,28 +37,10 @@ def _validate_questionnaire(questionnaire: Questionnaire) -> None:
             raise ValueError(f"question {question.id!r} cannot depend on itself")
 
 
-def build_questionnaire(profile: PatientProfile) -> Questionnaire:
-    """Return the questionnaire questions that apply to the patient's gender."""
-    q = _load()
-    questions = [
-        Question.model_validate(x.model_dump()) for x in q.questions if _applies_to_gender(x, profile.gender.value)
-    ]
-    return Questionnaire(version=q.version, questions=questions)
-
-
-def _applies_to_gender(q: Question, gender: str) -> bool:
-    # quy ước: id bắt đầu bằng "f_" chỉ hỏi nữ, "m_" chỉ hỏi nam
-    if q.id.startswith("f_"):
-        return gender == "female"
-    if q.id.startswith("m_"):
-        return gender == "male"
-    return True
-
-
-def _visible(q: Question, answered: dict[str, object]) -> bool:
-    if not q.depends_on:
+def visible(depends_on: str | None, answered: dict[str, object]) -> bool:
+    if not depends_on:
         return True
-    key, _, expected = q.depends_on.partition("=")
+    key, _, expected = depends_on.partition("=")
     val = answered.get(key)
     expected_normalized = expected.strip().casefold()
     if isinstance(val, (list, tuple, set)):
@@ -68,11 +50,11 @@ def _visible(q: Question, answered: dict[str, object]) -> bool:
     return val is not None and str(val).strip().casefold() == expected_normalized
 
 
-def missing_required(profile: PatientProfile, answers: list[Answer]) -> list[str]:
+def missing_required(answers: list[Answer]) -> list[str]:
     """question_id bắt buộc, đang hiển thị (theo depends_on) mà chưa trả lời."""
     answered = {a.question_id: a.value for a in answers}
     return [
         q.id
-        for q in build_questionnaire(profile).questions
-        if q.required and _visible(q, answered) and q.id not in answered
+        for q in load_questionnaire().questions
+        if q.required and visible(q.depends_on, answered) and q.id not in answered
     ]
