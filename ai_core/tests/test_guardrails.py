@@ -36,6 +36,12 @@ def test_negated_statement_is_not_diagnosis():
     assert not find_diagnosis_language("Điều này không có nghĩa là bạn mắc bệnh")
 
 
+def test_conditional_statement_is_not_diagnosis():
+    assert not find_diagnosis_language("Nếu bạn bị chảy máu bất thường, hãy đi khám sớm.")
+    assert not find_diagnosis_language("Trong trường hợp bạn mắc viêm gan B, nên trao đổi với bác sĩ.")
+    assert find_diagnosis_language("Nếu đúng như mô tả thì bạn bị ung thư vú.")
+
+
 def test_out_of_scope_and_injection_detection():
     assert is_out_of_scope_request("Kết quả PSA của tôi là 6, có phải ung thư không?")
     assert is_out_of_scope_request("ung thu phoi dieu tri the nao")

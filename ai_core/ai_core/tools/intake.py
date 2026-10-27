@@ -102,17 +102,20 @@ def from_answers(intake: IntakeProfile, answers: list[Answer]) -> IntakeProfile:
     return IntakeProfile.model_validate(data)
 
 
-_RELATIVE_OWNER = re.compile(
-    r"\b(bo|me|cha|ong|ba|anh|chi|em|co|di|chu|bac|cau|mo|con|vo|chong)\s+(toi|minh|tui|em)\s+(nam nay\s+)?$"
+# Chủ ngữ là người thân: từ không nhập nhằng đứng một mình ("bố mất năm 60 tuổi"), từ nhập nhằng (cô/có, bà/ba…)
+# chỉ tính khi kèm đại từ sở hữu ("cô tôi"). "bỏ thuốc" cũng gấp thành "bo thuoc" nên loại trừ.
+_KIN_SUBJECT = re.compile(
+    r"\b(bo(?! thuoc)|me|cha|ba ngoai|ba noi|ong ngoai|ong noi|anh trai|chi gai|em gai|em trai|nguoi than)\b"
+    r"|\b(ong|ba|co|di|chu|bac|cau|mo|anh|chi|em|con|vo|chong)\s+(toi|minh|tui|em)\b"
 )
 
 
 def _age(folded: str, today: date) -> int | None:
-    for m in re.finditer(r"\b(\d{1,3})\s*(tuoi|t)\b", folded):
-        before = folded[max(0, m.start() - 25) : m.start()]
-        if _RELATIVE_OWNER.search(before):  # "mẹ tôi 70 tuổi" là tuổi của người thân
-            continue
-        return int(m.group(1))
+    for clause in re.split(r"[,.;!?\n]+", folded):
+        for m in re.finditer(r"\b(\d{1,3})\s*(tuoi|t)\b", clause):
+            if _KIN_SUBJECT.search(clause[: m.start()]):  # "mẹ tôi 70 tuổi", "bố mất năm 60 tuổi"
+                continue
+            return int(m.group(1))
     if m := re.search(r"sinh nam (19\d\d|20\d\d)", folded):
         return today.year - int(m.group(1))
     if m := re.search(r"nam nay (\d{1,3})\b", folded):

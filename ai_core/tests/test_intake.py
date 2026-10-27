@@ -17,6 +17,14 @@ def test_relative_age_is_not_user_age():
     assert intake.family_history == [CancerType.colorectal]
 
 
+def test_relative_age_in_other_clause_is_not_user_age():
+    intake = from_text(IntakeProfile(), "Bố tôi mất năm 60 tuổi vì ung thư phổi")
+    assert intake.age is None and intake.family_history == [CancerType.lung]
+    intake = from_text(IntakeProfile(), "Mẹ 70 tuổi bị ung thư vú, tôi là nữ 40 tuổi")
+    assert intake.age == 40 and intake.gender == Gender.female
+    assert from_text(IntakeProfile(), "Tôi đã bỏ thuốc lá và năm nay 62 tuổi").age == 62
+
+
 def test_personal_history_and_birth_year():
     intake = from_text(IntakeProfile(), "Sinh năm 1976, nữ, đã từng bị ung thư vú", today=date(2026, 10, 27))
     assert intake.age == 50 and intake.personal_cancer_history is True

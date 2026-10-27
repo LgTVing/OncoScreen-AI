@@ -54,15 +54,18 @@ class GuardrailViolation(Exception):
 
 
 _NEGATED_CLAIM = re.compile(r"(khong co nghia la|khong phai la|khong phai|chua chac|khong|chua)\s*(la\s*)?$")
+_CONDITIONAL = re.compile(r"\b(neu nhu|neu|khi|trong truong hop|truong hop|phong khi)\s*$")
 
 
 def find_diagnosis_language(text: str) -> list[str]:
-    """Cụm từ khẳng định chẩn đoán; bỏ qua câu phủ định như "không có nghĩa là bạn mắc bệnh"."""
-    return [
-        m.group(0)
-        for m in _RE.finditer(text)
-        if not _NEGATED_CLAIM.search(fold(text[max(0, m.start() - 30) : m.start()]))
-    ]
+    """Cụm từ khẳng định chẩn đoán; bỏ qua câu phủ định ("không có nghĩa là bạn mắc bệnh")
+    và câu điều kiện ("nếu bạn bị chảy máu bất thường, hãy đi khám")."""
+    hits = []
+    for m in _RE.finditer(text):
+        before = fold(text[max(0, m.start() - 30) : m.start()])
+        if not _NEGATED_CLAIM.search(before) and not _CONDITIONAL.search(before):
+            hits.append(m.group(0))
+    return hits
 
 
 def is_out_of_scope_request(text: str) -> bool:
