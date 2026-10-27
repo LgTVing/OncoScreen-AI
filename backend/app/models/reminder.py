@@ -12,7 +12,7 @@ from app.models._common import Timestamps, UUIDPk
 class Reminder(UUIDPk, Timestamps, Base):
     __tablename__ = "reminders"
 
-    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("screening_sessions.id"), nullable=False)
+    encounter_id: Mapped[str] = mapped_column(String(36), ForeignKey("encounters.id"), nullable=False)
     patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True, nullable=False)
     cancer_type: Mapped[str] = mapped_column(String(32), nullable=False)
     method: Mapped[str] = mapped_column(String(255), nullable=False)

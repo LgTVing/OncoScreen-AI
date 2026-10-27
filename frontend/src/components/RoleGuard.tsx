@@ -1,32 +1,58 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { Role } from "@/types/api";
 import { clearSession, getUser, homeFor } from "@/lib/auth";
+import { Brand, SiteFooter } from "@/components/Brand";
+import {
+  Bell,
+  BookOpen,
+  CalendarPlus,
+  ClipboardList,
+  History,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  UserCircle,
+  Users,
+  type IconType,
+} from "@/components/icons";
 
 interface NavItem {
   href: string;
   label: string;
-  icon: string;
+  icon: IconType;
+  /** Các tiền tố đường dẫn cũng được tính là mục này (vd. trang chi tiết). */
+  match?: string[];
 }
 
 const PATIENT_NAV: NavItem[] = [
-  { href: "/patient", label: "Tổng quan", icon: "🏠" },
-  { href: "/patient/profile", label: "Hồ sơ", icon: "👤" },
-  { href: "/patient/education", label: "Tài liệu", icon: "📚" },
-  { href: "/patient/chat", label: "Chat AI", icon: "💬" },
-  { href: "/patient/reminders", label: "Nhắc lịch", icon: "🔔" },
+  { href: "/patient", label: "Tổng quan", icon: LayoutDashboard, match: ["/patient/visits"] },
+  { href: "/patient/chat", label: "Trợ lý tầm soát", icon: MessageSquare },
+  { href: "/patient/book", label: "Đặt lịch", icon: CalendarPlus },
+  { href: "/patient/record", label: "Hồ sơ xuyên suốt", icon: History },
+  { href: "/patient/reminders", label: "Nhắc lịch", icon: Bell },
+  { href: "/patient/education", label: "Tài liệu", icon: BookOpen },
+  { href: "/patient/profile", label: "Thông tin sức khoẻ", icon: UserCircle },
 ];
 
 const DOCTOR_NAV: NavItem[] = [
-  { href: "/doctor", label: "Hàng chờ duyệt", icon: "📋" },
+  { href: "/doctor", label: "Hàng chờ khám", icon: ClipboardList, match: ["/doctor/encounters"] },
+  { href: "/doctor/patients", label: "Bệnh nhân", icon: Users },
 ];
 
+function isActive(pathname: string, item: NavItem): boolean {
+  if (pathname === item.href) return true;
+  if (item.match?.some((p) => pathname.startsWith(p))) return true;
+  const isRoot = item.href === "/patient" || item.href === "/doctor";
+  return !isRoot && pathname.startsWith(`${item.href}/`);
+}
+
 /**
- * Bọc layout theo role:
- * - Chưa đăng nhập → /login
- * - Sai role → về trang của role đó
+ * Khung trang theo vai trò:
+ * - Chưa đăng nhập → /login?next=<trang hiện tại>
+ * - Sai vai trò → về trang của vai trò đó
  */
 export function RoleGuard({ role, children }: { role: Role; children: React.ReactNode }) {
   const router = useRouter();
@@ -37,7 +63,8 @@ export function RoleGuard({ role, children }: { role: Role; children: React.Reac
   useEffect(() => {
     const u = getUser();
     if (!u) {
-      router.replace("/login");
+      const next = `${window.location.pathname}${window.location.search}`;
+      router.replace(`/login?next=${encodeURIComponent(next)}`);
     } else if (u.role !== role) {
       router.replace(homeFor(u.role));
     } else {
@@ -48,83 +75,82 @@ export function RoleGuard({ role, children }: { role: Role; children: React.Reac
 
   function handleLogout() {
     clearSession();
-    router.replace("/login");
+    router.replace("/");
   }
 
   if (!ok) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <span className="spinner h-6 w-6 text-blue-500" aria-label="Đang tải…" />
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="w-full max-w-md space-y-3 px-4" aria-busy="true" aria-label="Đang tải">
+          <div className="skeleton h-8 w-40" />
+          <div className="skeleton h-24 rounded-xl" />
+          <div className="skeleton h-24 rounded-xl" />
+        </div>
       </div>
     );
   }
 
-  const navItems = role === "doctor" ? DOCTOR_NAV : PATIENT_NAV;
-  const roleBadge = role === "doctor" ? "Bác sĩ" : "Bệnh nhân";
-  const roleBadgeClass =
-    role === "doctor"
-      ? "bg-violet-100 text-violet-700"
-      : "bg-blue-100 text-blue-700";
+  const isDoctor = role === "doctor";
+  const navItems = isDoctor ? DOCTOR_NAV : PATIENT_NAV;
+  const activeNavClass = isDoctor ? "bg-indigo-50 text-indigo-700 font-semibold" : "bg-teal-50 text-teal-800 font-semibold";
+  const activeIcon = isDoctor ? "text-indigo-600" : "text-teal-700";
+  const roleBadgeClass = isDoctor
+    ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+    : "bg-teal-100 text-teal-800 border border-teal-200";
+
+  const nav = (
+    <nav className="flex min-w-0 items-center gap-1 overflow-x-auto py-1" aria-label="Điều hướng chính">
+      {navItems.map((item) => {
+        const active = isActive(pathname, item);
+        const Icon = item.icon;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              active ? activeNavClass : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            }`}
+            aria-current={active ? "page" : undefined}
+          >
+            <Icon className={`h-4 w-4 ${active ? activeIcon : "text-slate-500"}`} aria-hidden />
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100">
-      {/* ===== Top Navbar ===== */}
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
-          {/* Logo */}
-          <Link href={homeFor(role)} className="flex items-center gap-2 font-bold text-slate-900 hover:text-blue-600 transition-colors">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white text-xs font-bold">OS</span>
-            <span className="hidden sm:inline">OncoScreen AI</span>
-          </Link>
-
-          {/* Nav links */}
-          <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="Điều hướng chính">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-blue-50 text-blue-600"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  <span aria-hidden="true">{item.icon}</span>
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* User info + logout */}
-          <div className="flex items-center gap-3">
+    <div className="flex min-h-screen flex-col bg-slate-50">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
+          <Brand
+            href={homeFor(role)}
+            tone={isDoctor ? "doctor" : "patient"}
+            subtitle={isDoctor ? "Cổng bác sĩ" : "Cổng bệnh nhân"}
+          />
+          <div className="hidden min-w-0 flex-1 lg:block">{nav}</div>
+          <div className="ml-auto flex items-center gap-3">
             <div className="hidden flex-col items-end text-right sm:flex">
-              <span className="text-sm font-medium text-slate-800 leading-tight">{userName}</span>
-              <span className={`badge text-[10px] ${roleBadgeClass}`}>{roleBadge}</span>
+              <span className="max-w-[12rem] truncate text-sm font-semibold leading-tight text-slate-900">{userName}</span>
+              <span className={`badge mt-0.5 text-[10px] ${roleBadgeClass}`}>{isDoctor ? "Bác sĩ" : "Bệnh nhân"}</span>
             </div>
             <button
-              id="btn-logout"
               type="button"
               onClick={handleLogout}
-              className="btn-ghost text-xs"
-              title="Đăng xuất"
+              className="btn-ghost px-2.5 text-sm text-slate-600"
+              aria-label="Đăng xuất"
             >
-              Đăng xuất
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Đăng xuất</span>
             </button>
           </div>
         </div>
+        <div className="mx-auto max-w-6xl border-t border-slate-100 px-2 sm:px-4 lg:hidden">{nav}</div>
       </header>
 
-      {/* ===== Page content ===== */}
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
-
-      {/* ===== Footer ===== */}
-      <footer className="border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-400">
-        OncoScreen AI — chỉ hỗ trợ tầm soát, <strong className="font-medium">không chẩn đoán bệnh</strong>. Kế hoạch cá nhân cần bác sĩ phê duyệt; chat chỉ cung cấp kiến thức chung.
-      </footer>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+      <SiteFooter />
     </div>
   );
 }

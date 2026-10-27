@@ -2,75 +2,128 @@
 
 import { FormEvent, useState } from "react";
 import { api } from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
 import type { QuestionAnswer } from "@/types/api";
+import { SourceList } from "@/components/SourceList";
+import { InlineError } from "@/components/ui";
+import { AlertTriangle, Bot, MessageSquare, Send, User } from "@/components/icons";
 
 type Exchange = { question: string; result: QuestionAnswer };
 
-export function PatientQuestionBox({ sessionId }: { sessionId: string }) {
+const PROMPTS = ["Vì sao tôi cần làm xét nghiệm này?", "Lần tầm soát tới của tôi là khi nào?", "Tôi cần chuẩn bị gì trước khi đi tầm soát?"];
+
+/** Hỏi trợ lý về kết luận & kế hoạch bác sĩ đã duyệt (POST /encounters/{id}/questions). */
+export function PatientQuestionBox({ encounterId }: { encounterId: string }) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<Exchange[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = question.trim();
-    if (!value || loading) return;
+  async function ask(value: string) {
+    const q = value.trim();
+    if (!q || loading) return;
     setLoading(true);
     setError("");
     try {
-      const result = await api.askQuestion(sessionId, value);
-      setMessages((current) => [...current, { question: value, result }]);
+      const result = await api.askEncounterQuestion(encounterId, q);
+      setMessages((current) => [...current, { question: q, result }]);
       setQuestion("");
-    } catch {
-      setError("Chưa gửi được câu hỏi. Vui lòng thử lại.");
+    } catch (err) {
+      setError(errorMessage(err, "Chưa gửi được câu hỏi đến trợ lý. Vui lòng thử lại."));
     } finally {
       setLoading(false);
     }
   }
 
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void ask(question);
+  }
+
   return (
-    <section className="card-padded space-y-4">
-      <div>
-        <h2 className="font-semibold text-slate-800">Hỏi trợ lý về kết quả đã duyệt</h2>
-        <p className="text-sm text-slate-600">
-          Trợ lý chỉ giải thích nội dung đã có trong kế hoạch và tài liệu trích dẫn. Nếu phiên chưa có kế hoạch
-          hoặc câu hỏi cần đánh giá y khoa, hãy trao đổi với bác sĩ.
-        </p>
+    <section className="card-padded space-y-4" aria-labelledby="patient-qa-title">
+      <div className="flex items-start gap-2 border-b border-slate-100 pb-3">
+        <MessageSquare className="mt-0.5 h-5 w-5 text-teal-700" aria-hidden="true" />
+        <div>
+          <h2 id="patient-qa-title" className="text-base font-semibold text-slate-900">
+            Hỏi trợ lý về kế hoạch đã duyệt
+          </h2>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Trợ lý giải thích kế hoạch bác sĩ đã duyệt; không chẩn đoán và không đọc kết quả xét nghiệm.
+          </p>
+        </div>
       </div>
-      <div className="space-y-3" aria-live="polite">
-        {messages.map((message, index) => (
-          <div key={index} className="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
-            <p className="font-medium text-slate-800">Bạn: {message.question}</p>
-            <p className="whitespace-pre-wrap text-slate-700">Trợ lý: {message.result.answer}</p>
-            {message.result.sources.length > 0 && (
-              <ul className="text-xs text-slate-500">
-                {message.result.sources.map((source) => (
-                  <li key={`${source.doc_id}-${source.section ?? ""}`}>
-                    Nguồn: {source.url ? <a href={source.url} target="_blank" rel="noreferrer" className="underline">{source.title}</a> : source.title}
-                    {source.section ? ` · ${source.section}` : ""}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {message.result.insufficient_evidence && <p className="text-xs text-amber-700">Cần hỏi bác sĩ để được tư vấn thêm.</p>}
-          </div>
-        ))}
-      </div>
-      <form onSubmit={submit} className="space-y-2">
-        <label htmlFor="patient-question" className="block text-sm font-medium text-slate-700">Câu hỏi của bạn</label>
-        <textarea
-          id="patient-question"
-          className="input w-full resize-y"
-          rows={3}
-          maxLength={1000}
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          placeholder="Ví dụ: Kế hoạch đã duyệt nêu phương pháp tầm soát nào?"
-        />
-        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+
+      {messages.length === 0 && (
+        <div className="flex flex-wrap gap-2">
+          {PROMPTS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => void ask(p)}
+              disabled={loading}
+              className="cursor-pointer rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-700 transition-colors hover:border-teal-300 hover:bg-teal-50 disabled:opacity-50"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {messages.length > 0 && (
+        <div className="space-y-3" aria-live="polite">
+          {messages.map((m, index) => (
+            <div key={index} className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3.5 text-sm">
+              <p className="flex items-start gap-2 font-medium text-slate-900">
+                <User className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" aria-hidden="true" />
+                <span>{m.question}</span>
+              </p>
+              <div className="flex items-start gap-2 text-slate-700">
+                <Bot className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="whitespace-pre-wrap leading-relaxed">{m.result.answer}</p>
+                  {m.result.insufficient_evidence && (
+                    <p className="flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      Chưa đủ căn cứ trong kế hoạch đã duyệt; bạn nên hỏi trực tiếp bác sĩ.
+                    </p>
+                  )}
+                  <SourceList sources={m.result.sources} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={submit} className="space-y-3">
+        <div>
+          <label htmlFor="patient-question" className="label">
+            Câu hỏi của bạn
+          </label>
+          <textarea
+            id="patient-question"
+            className="input resize-y"
+            rows={2}
+            maxLength={1000}
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder="Ví dụ: Chụp nhũ ảnh cần chuẩn bị những gì?"
+          />
+        </div>
+        {error && <InlineError message={error} />}
         <button type="submit" className="btn-primary" disabled={loading || !question.trim()}>
-          {loading ? "Đang trả lời…" : "Gửi câu hỏi"}
+          {loading ? (
+            <>
+              <span className="spinner" aria-hidden="true" />
+              <span>Đang xử lý…</span>
+            </>
+          ) : (
+            <>
+              <Send className="h-4 w-4" aria-hidden="true" />
+              <span>Gửi câu hỏi</span>
+            </>
+          )}
         </button>
       </form>
     </section>

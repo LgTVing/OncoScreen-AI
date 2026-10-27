@@ -25,7 +25,11 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="OncoScreen AI API",
     version="0.1.0",
-    description="API cho hệ thống AI Agent hỗ trợ tầm soát ung thư (HITL). Xem docs/protocols/API_CONTRACT.md",
+    description=(
+        "API hành trình tầm soát ung thư: Navigator (ẩn danh) → đặt lịch → Clinical Copilot cho bác sĩ (HITL) "
+        "→ theo dõi. "
+        "Xem docs/protocols/API_CONTRACT.md"
+    ),
     lifespan=lifespan,
 )
 app.add_middleware(

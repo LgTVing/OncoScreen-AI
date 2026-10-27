@@ -1,5 +1,7 @@
 # 04 — Lộ trình 5 tuần & mốc bàn giao
 
+> **Cập nhật 27/10/2026 — đổi scope:** luồng `screening_sessions` (bảng hỏi → AI soạn kế hoạch → duyệt) đã được thay bằng hành trình Navigator → đặt lịch → Clinical Copilot → theo dõi. Nguồn sự thật hiện hành: `docs/00_OVERVIEW.md`, `docs/02_BUSINESS_FLOW.md`, `docs/05_AGENT_RELIABILITY.md` và các file trong `docs/protocols/`. Checklist bên dưới là lịch sử triển khai giai đoạn trước.
+
 ## Baseline sau khi chốt contract
 
 `ai_core/ai_core/schemas.py`, `MockAgent`, API contract và type mirror của Frontend đã

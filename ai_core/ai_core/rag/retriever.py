@@ -1,60 +1,117 @@
-"""Retriever: lọc metadata trước (gender, tuổi) rồi similarity search → list[Source]."""
+"""Hybrid retriever: lọc metadata → BM25 (từ khoá) + vector (Chroma) → Reciprocal Rank Fusion → list[Source].
+
+Vector store là tuỳ chọn: thiếu index/embedding thì tự hạ cấp về BM25 trên cùng kho chunk (graceful degradation),
+trace ghi `mode=lexical` để quan sát được.
+"""
 
 from __future__ import annotations
 
-import chromadb
+import logging
+from dataclasses import dataclass
 
 from ai_core.config import settings
-from ai_core.rag.embeddings import get_embedding_function
-from ai_core.rag.ingest import COLLECTION
-from ai_core.schemas import PatientProfile, RiskAssessment, Source
+from ai_core.rag.corpus import Chunk, load_chunks
+from ai_core.rag.lexical import BM25, tokenize
+from ai_core.schemas import CancerType, Gender, Source
+
+logger = logging.getLogger(__name__)
+RRF_K = 60
 
 
-def retrieve_sources(profile: PatientProfile, risk: RiskAssessment | None, k: int = 6) -> list[Source]:
+@dataclass
+class RetrievalResult:
+    sources: list[Source]
+    mode: str  # hybrid | lexical | empty
+    dense_status: str  # ok | skipped | unavailable
+
+
+def rrf(rankings: list[list[str]], k: int = RRF_K) -> dict[str, float]:
+    """Reciprocal Rank Fusion: score(d) = Σ 1/(k + rank)."""
+    fused: dict[str, float] = {}
+    for ranking in rankings:
+        for rank, item in enumerate(ranking, start=1):
+            fused[item] = fused.get(item, 0.0) + 1.0 / (k + rank)
+    return fused
+
+
+def _matches(chunk: Chunk, gender: Gender | None, age: int | None, cancer_types: set[CancerType] | None) -> bool:
+    meta = chunk.meta
+    if gender is not None and meta.get("gender") not in {gender.value, "any"}:
+        return False
+    if age is not None and (int(meta.get("min_age", 0)) > age or int(meta.get("max_age", 120)) < age):
+        return False
+    if cancer_types and meta.get("cancer_type") not in {c.value for c in cancer_types} | {"other"}:
+        return False
+    return True
+
+
+def _dense_ids(query: str, gender: Gender | None, n: int) -> list[str]:
+    import chromadb
+
+    from ai_core.rag.embeddings import get_embedding_function
+    from ai_core.rag.ingest import COLLECTION
+
     client = chromadb.PersistentClient(path=str(settings.vector_store_dir))
-    if COLLECTION not in {collection.name for collection in client.list_collections()}:
-        return []
-    col = client.get_collection(COLLECTION)
+    if COLLECTION not in {c.name for c in client.list_collections()}:
+        raise LookupError("collection chưa được ingest")
+    col = client.get_collection(COLLECTION, embedding_function=get_embedding_function())
     count = col.count()
     if count == 0:
-        return []
-    col = client.get_collection(COLLECTION, embedding_function=get_embedding_function())
-    query = _build_query(profile, risk)
-    where = {"$or": [{"gender": profile.gender.value}, {"gender": "any"}]}
-    res = col.query(query_texts=[query], n_results=min(count, k * 4), where=where)
+        raise LookupError("collection rỗng")
+    where = {"$or": [{"gender": gender.value}, {"gender": "any"}]} if gender else None
+    res = col.query(query_texts=[query], n_results=min(count, n), where=where)
+    return list(res["ids"][0])
+
+
+def retrieve(
+    query: str,
+    *,
+    gender: Gender | None = None,
+    age: int | None = None,
+    cancer_types: set[CancerType] | None = None,
+    k: int | None = None,
+    dense: bool = True,
+) -> RetrievalResult:
+    k = k or settings.rag_top_k
+    pool = [c for c in load_chunks() if _matches(c, gender, age, cancer_types)]
+    if not pool or not query.strip():
+        return RetrievalResult(sources=[], mode="empty", dense_status="skipped")
+    by_id = {c.id: c for c in pool}
+
+    bm25 = BM25([tokenize(c.text) for c in pool])
+    scores = bm25.scores(tokenize(query))
+    lexical = [c.id for c, s in sorted(zip(pool, scores, strict=True), key=lambda x: -x[1]) if s > 0][: k * 3]
+
+    dense_ids: list[str] = []
+    dense_status = "skipped"
+    if dense:
+        try:
+            dense_ids = [i for i in _dense_ids(query, gender, k * 4) if i in by_id]
+            dense_status = "ok"
+        except Exception as exc:  # noqa: BLE001 — thiếu index/model: vẫn trả kết quả từ khoá
+            logger.info("dense_retrieval_unavailable error_type=%s", type(exc).__name__)
+            dense_status = "unavailable"
+
+    fused = rrf([lexical, dense_ids] if dense_ids else [lexical])
+    ranked = sorted(fused, key=lambda cid: -fused[cid])
     sources: list[Source] = []
     seen: set[tuple[str, str]] = set()
-    levels = {factor.cancer_type.value: factor.level.value for factor in (risk.factors if risk else [])}
-    for doc, meta in zip(res["documents"][0], res["metadatas"][0], strict=True):
-        cancer_type = str(meta.get("cancer_type", ""))
-        level = str(meta.get("risk_level", "any"))
-        target_level = levels.get(cancer_type, "average")
-        if int(meta.get("min_age", 0)) > profile.age or int(meta.get("max_age", 120)) < profile.age:
-            continue
-        if level not in {"any", target_level}:
-            continue
-        key = (str(meta.get("doc_id")), str(meta.get("section")))
+    for cid in ranked:
+        chunk = by_id[cid]
+        key = (chunk.doc_id, chunk.section)
         if key in seen:
             continue
         seen.add(key)
         sources.append(
             Source(
-                doc_id=str(meta.get("doc_id")),
-                title=str(meta.get("source", meta.get("doc_id"))),
-                section=meta.get("section"),
-                excerpt=doc[:1000],
-                url=meta.get("url"),
+                doc_id=chunk.doc_id,
+                title=str(chunk.meta.get("source", chunk.doc_id)),
+                section=chunk.section,
+                excerpt=chunk.content[:800],
+                url=chunk.meta.get("url"),
             )
         )
         if len(sources) >= k:
             break
-    return sources
-
-
-def _build_query(profile: PatientProfile, risk: RiskAssessment | None) -> str:
-    parts = [f"tầm soát ung thư cho {profile.gender.value} {profile.age} tuổi"]
-    if risk:
-        parts += [f"{f.cancer_type.value} nguy cơ {f.level.value}" for f in risk.factors]
-    if profile.genetics_history:
-        parts.append("tiền sử gia đình: " + ", ".join(profile.genetics_history))
-    return "; ".join(parts)
+    mode = "empty" if not sources else ("hybrid" if dense_ids else "lexical")
+    return RetrievalResult(sources=sources, mode=mode, dense_status=dense_status)

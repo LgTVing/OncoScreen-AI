@@ -1,4 +1,4 @@
-"""Fixtures: SQLite file tạm + TestClient + MockAgent."""
+"""Fixtures: SQLite file tạm + TestClient + MockAgent (pipeline thật, không gọi LLM)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.database import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
+
+API = "/api/v1"
 
 
 @pytest.fixture(autouse=True)
@@ -29,7 +31,12 @@ def client():
         yield c
 
 
-def register_and_login(client: TestClient, email: str, role: str) -> dict:
+def login(client: TestClient, email: str) -> dict:
+    tok = client.post(f"{API}/auth/login", json={"email": email, "password": "123456"}).json()["access_token"]
+    return {"Authorization": f"Bearer {tok}"}
+
+
+def register_and_login(client: TestClient, email: str, role: str = "patient", **extra) -> dict:
     if role == "doctor":
         from app.database import SessionLocal
         from app.schemas.auth import RegisterIn
@@ -38,37 +45,30 @@ def register_and_login(client: TestClient, email: str, role: str) -> dict:
         with SessionLocal() as db:
             auth_service.create_user(db, RegisterIn(email=email, password="123456", full_name=email, role="doctor"))
     else:
-        client.post(
-            "/api/v1/auth/register",
-            json={"email": email, "password": "123456", "full_name": email, "role": role},
+        r = client.post(
+            f"{API}/auth/register",
+            json={"email": email, "password": "123456", "full_name": email, "role": role, **extra},
         )
-    tok = client.post("/api/v1/auth/login", json={"email": email, "password": "123456"}).json()["access_token"]
-    return {"Authorization": f"Bearer {tok}"}
+        assert r.status_code == 201, r.text
+    return login(client, email)
 
 
-@pytest.fixture()
-def patient(client):
-    h = register_and_login(client, "lan@test.vn", "patient")
-    client.put(
-        "/api/v1/patients/me/profile",
-        json={"age": 45, "gender": "female", "genetics_history": ["breast_cancer_mother"], "lifestyle": {}},
-        headers=h,
-    )
-    return h
+def start_consultation(client: TestClient, headers: dict | None = None) -> tuple[str, dict]:
+    r = client.post(f"{API}/navigator/consultations", headers=headers or {})
+    assert r.status_code == 201, r.text
+    body = r.json()
+    return body["consultation"]["id"], {**(headers or {}), "X-Consult-Token": body["access_token"]}
+
+
+def say(client: TestClient, consult_id: str, headers: dict, message: str | None = None, answers=None) -> dict:
+    payload = {"message": message} if message else {}
+    if answers:
+        payload["answers"] = answers
+    r = client.post(f"{API}/navigator/consultations/{consult_id}/messages", json=payload, headers=headers)
+    assert r.status_code == 200, r.text
+    return r.json()
 
 
 @pytest.fixture()
 def doctor(client):
     return register_and_login(client, "doc@test.vn", "doctor")
-
-
-NORMAL_ANSWERS = [
-    {"question_id": "family_history", "value": ["Ung thư vú"]},
-    {"question_id": "smoking", "value": False},
-    {"question_id": "alcohol", "value": "Không"},
-    {"question_id": "hbv_hcv", "value": False},
-    {"question_id": "symptom_lump", "value": False},
-    {"question_id": "symptom_bleeding", "value": False},
-    {"question_id": "symptom_weight_loss", "value": False},
-    {"question_id": "symptom_persistent_pain", "value": False},
-]

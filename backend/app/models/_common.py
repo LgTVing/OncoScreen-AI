@@ -7,6 +7,19 @@ from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator
+
+
+class UTCDateTime(TypeDecorator):
+    """DateTime luôn trả về có múi giờ UTC. SQLite bỏ tzinfo khi lưu → API trả giờ "trôi" nếu không gắn lại."""
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_result_value(self, value: datetime | None, dialect) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
 
 
 def new_uuid() -> str:
@@ -22,5 +35,5 @@ class UUIDPk:
 
 
 class Timestamps:
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)

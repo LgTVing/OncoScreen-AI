@@ -1,5 +1,7 @@
 # Guide: Module 2 — Backend & Database
 
+> **Cập nhật 27/10/2026 — đổi scope:** luồng `screening_sessions` (bảng hỏi → AI soạn kế hoạch → duyệt) đã được thay bằng hành trình Navigator → đặt lịch → Clinical Copilot → theo dõi. Nguồn sự thật hiện hành: `docs/00_OVERVIEW.md`, `docs/02_BUSINESS_FLOW.md`, `docs/05_AGENT_RELIABILITY.md` và các file trong `docs/protocols/`. Checklist bên dưới là lịch sử triển khai giai đoạn trước.
+
 **Bạn sở hữu:** `backend/`. **Bạn cung cấp:** REST API theo `API_CONTRACT.md`. **Bạn tiêu thụ:** `ai_core` theo `AI_CORE_CONTRACT.md`.
 **Không cần chờ AI Core:** đặt `USE_MOCK_AGENT=true`.
 

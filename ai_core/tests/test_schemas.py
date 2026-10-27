@@ -4,13 +4,23 @@ import pytest
 from pydantic import ValidationError
 
 from ai_core.schemas import (
+    BookingHint,
+    BookingPriority,
     CancerType,
+    IntakeProfile,
+    NavigatorReply,
+    NextAction,
     PlanItem,
+    RedFlag,
     RedFlagResult,
+    RedFlagSeverity,
     ScreeningPlan,
-    ScreeningResult,
+    ScreeningSuggestion,
     Source,
 )
+
+SRC = Source(doc_id="d", title="t", excerpt="e")
+FLAG = RedFlag(code="symptom_lump", symptom="Khối u", severity=RedFlagSeverity.urgent, advice="Đi khám")
 
 
 def _item() -> PlanItem:
@@ -20,47 +30,54 @@ def _item() -> PlanItem:
         interval_months=24,
         next_due=date.today(),
         rationale="theo guideline",
-        sources=[Source(doc_id="d", title="t", excerpt="e")],
+        sources=[SRC],
     )
 
 
-def test_plan_item_requires_source():
-    with pytest.raises(ValidationError):
-        PlanItem(
-            cancer_type=CancerType.breast,
-            method="x",
-            interval_months=12,
-            next_due=date.today(),
-            rationale="r",
-            sources=[],
-        )
+def _reply(**kw) -> NavigatorReply:
+    base = dict(
+        reply="ok",
+        intake=IntakeProfile(),
+        red_flag=RedFlagResult(detected=False),
+        next_action=NextAction.continue_chat,
+        disclaimer="d",
+        trace_id="t",
+    )
+    return NavigatorReply(**{**base, **kw})
 
 
-def test_red_flag_result_cannot_have_plan():
-    plan = ScreeningPlan(items=[_item()], generated_at=datetime.now(), model="mock")
+def test_plan_item_and_suggestion_require_source():
     with pytest.raises(ValidationError):
-        ScreeningResult(status="red_flag", draft_plan=plan, disclaimer="d", trace_id="t")
+        PlanItem(cancer_type=CancerType.breast, method="x", interval_months=12, rationale="r", sources=[])
+    with pytest.raises(ValidationError):
+        ScreeningSuggestion(rule_id="r", cancer_type=CancerType.breast, method="m", applies_because="a", sources=[])
 
 
 def test_plan_roundtrip_json():
     plan = ScreeningPlan(items=[_item()], generated_at=datetime.now(), model="mock")
-    dumped = plan.model_dump(mode="json")
-    assert ScreeningPlan.model_validate(dumped) == plan
+    assert ScreeningPlan.model_validate(plan.model_dump(mode="json")) == plan
 
 
-def test_pending_review_requires_complete_payload():
+def test_red_flag_reply_must_route_to_urgent_care_without_suggestions():
+    rf = RedFlagResult(detected=True, flags=[FLAG], message="m")
+    hint = BookingHint(priority=BookingPriority.urgent, service_codes=["oncology_priority"], reason="r")
+    assert (
+        _reply(red_flag=rf, next_action=NextAction.urgent_care, booking_hint=hint).next_action == NextAction.urgent_care
+    )
     with pytest.raises(ValidationError):
-        ScreeningResult(status="pending_review", disclaimer="d", trace_id="t")
-
-
-def test_red_flag_requires_detected_flag_payload():
+        _reply(red_flag=rf, next_action=NextAction.suggest_booking, booking_hint=hint)
+    suggestion = ScreeningSuggestion(
+        rule_id="r", cancer_type=CancerType.breast, method="m", applies_because="a", sources=[SRC]
+    )
     with pytest.raises(ValidationError):
-        ScreeningResult(
-            status="red_flag",
-            red_flag=RedFlagResult(detected=False),
-            disclaimer="d",
-            trace_id="t",
-        )
+        _reply(red_flag=rf, next_action=NextAction.urgent_care, booking_hint=hint, suggestions=[suggestion])
+
+
+def test_urgent_care_requires_red_flag_and_booking_requires_hint():
+    with pytest.raises(ValidationError):
+        _reply(next_action=NextAction.urgent_care)
+    with pytest.raises(ValidationError):
+        _reply(next_action=NextAction.suggest_booking)
 
 
 def test_detected_red_flag_requires_message_and_flags():

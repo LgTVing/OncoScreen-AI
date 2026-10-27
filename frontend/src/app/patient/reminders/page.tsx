@@ -1,148 +1,166 @@
 "use client";
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { errorMessage } from "@/lib/errors";
+import { cancerLabel, REMINDER_STATUS_LABEL } from "@/lib/labels";
+import { formatDate } from "@/lib/format";
 import type { ReminderOut } from "@/types/api";
+import { ReminderStatusBadge } from "@/components/StatusBadge";
+import { EmptyState, InlineError, MetaDivider, SkeletonList } from "@/components/ui";
+import { Calendar, Check, CheckCircle2, ChevronRight } from "@/components/icons";
 
-const STATUS_LABEL: Record<string, string> = {
-  scheduled: "Sắp tới",
+type Filter = "all" | "due" | "scheduled" | "done";
+
+const FILTER_LABEL: Record<Filter, string> = {
+  all: "Tất cả",
   due: "Đến hạn",
-  done: "Đã hoàn thành",
-  skipped: "Đã bỏ qua",
+  scheduled: "Sắp tới",
+  done: "Đã làm",
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  scheduled: "bg-blue-50 border-blue-100",
-  due: "bg-yellow-50 border-yellow-200",
-  done: "bg-green-50 border-green-100",
+const ROW_STYLE: Record<string, string> = {
+  scheduled: "bg-white border-slate-200",
+  due: "bg-amber-50/60 border-amber-200",
+  done: "bg-slate-50 border-slate-200",
   skipped: "bg-slate-50 border-slate-200",
 };
 
-const BADGE_STYLE: Record<string, string> = {
-  scheduled: "bg-blue-100 text-blue-700",
-  due: "bg-yellow-200 text-yellow-800",
-  done: "bg-green-100 text-green-700",
-  skipped: "bg-slate-100 text-slate-500",
-};
-
-/** Màn lịch nhắc — nhóm theo trạng thái, có nút Đã tầm soát và lọc theo trạng thái. */
+/** Nhắc lịch tầm soát sinh từ kế hoạch bác sĩ đã duyệt; đánh dấu "đã làm" sinh chu kỳ kế tiếp. */
 export default function RemindersPage() {
-  const [items, setItems] = useState<ReminderOut[]>([]);
-  const [filter, setFilter] = useState<"all" | "scheduled" | "due" | "done">("all");
+  const [items, setItems] = useState<ReminderOut[] | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
   const [completing, setCompleting] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  function load() {
-    api.listReminders().then(setItems).catch(console.error);
-  }
-
-  useEffect(() => { load(); }, []);
+  const load = useCallback(() => {
+    setError("");
+    api
+      .listReminders()
+      .then(setItems)
+      .catch((err) => setError(errorMessage(err, "Chưa tải được lịch nhắc.")));
+  }, []);
+  useEffect(load, [load]);
 
   async function handleComplete(id: string) {
+    setCompleting(id);
+    setError("");
     try {
-      setCompleting(id);
       await api.completeReminder(id);
       load();
+    } catch (err) {
+      setError(errorMessage(err, "Chưa cập nhật được lịch nhắc."));
     } finally {
       setCompleting(null);
     }
   }
 
-  const filtered = filter === "all" ? items : items.filter((r) => r.status === filter);
-
-  const counts = {
-    all: items.length,
-    scheduled: items.filter((r) => r.status === "scheduled").length,
-    due: items.filter((r) => r.status === "due").length,
-    done: items.filter((r) => r.status === "done").length,
-  };
+  const all = items ?? [];
+  const filtered = filter === "all" ? all : all.filter((r) => r.status === filter);
+  const count = (f: Filter) => (f === "all" ? all.length : all.filter((r) => r.status === f).length);
 
   return (
-    <div className="fade-in mx-auto max-w-2xl space-y-6">
-      {/* Header */}
+    <div className="mx-auto max-w-3xl space-y-6">
       <header>
-        <h1 className="page-title">🔔 Lịch nhắc tầm soát</h1>
-        <p className="page-subtitle">Theo dõi và cập nhật các buổi tầm soát đã được bác sĩ lên kế hoạch.</p>
+        <h1 className="page-title">Nhắc lịch tầm soát</h1>
+        <p className="page-subtitle">Theo kế hoạch bác sĩ đã duyệt. Khi bạn đánh dấu đã làm, hệ thống tự tạo lần nhắc kế tiếp.</p>
       </header>
 
-      {/* Filter tabs */}
-      <div className="flex gap-1 rounded-lg bg-slate-100 p-1" role="tablist" aria-label="Lọc theo trạng thái">
-        {(["all", "due", "scheduled", "done"] as const).map((tab) => (
+      <div className="flex gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-slate-100 p-1" role="tablist" aria-label="Lọc theo trạng thái">
+        {(Object.keys(FILTER_LABEL) as Filter[]).map((f) => (
           <button
-            key={tab}
+            key={f}
+            type="button"
             role="tab"
-            aria-selected={filter === tab}
-            onClick={() => setFilter(tab)}
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-              filter === tab
-                ? "bg-white shadow text-slate-900"
-                : "text-slate-500 hover:text-slate-700"
+            aria-selected={filter === f}
+            onClick={() => setFilter(f)}
+            className={`flex flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              filter === f ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            {tab === "all" ? "Tất cả" : tab === "due" ? "Đến hạn" : tab === "scheduled" ? "Sắp tới" : "Đã làm"}
-            {" "}
-            <span className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] ${
-              filter === tab ? "bg-slate-100 text-slate-600" : "bg-slate-200 text-slate-500"
-            }`}>
-              {counts[tab]}
+            {FILTER_LABEL[f]}
+            <span className={`rounded-full px-1.5 text-xs ${filter === f ? "bg-teal-100 text-teal-800" : "bg-slate-200 text-slate-600"}`}>
+              {count(f)}
             </span>
           </button>
         ))}
       </div>
 
-      {/* List */}
-      {filtered.length === 0 ? (
-        <div className="card-padded py-12 text-center">
-          <p className="text-2xl mb-2">📅</p>
-          <p className="text-sm text-slate-500">
-            {filter === "all"
-              ? "Chưa có lịch nhắc nào. Bác sĩ sẽ tạo lịch sau khi phê duyệt kế hoạch tầm soát."
-              : `Không có lịch nhắc nào ở trạng thái "${STATUS_LABEL[filter] ?? filter}".`}
-          </p>
+      {error && <InlineError message={error} onRetry={load} />}
+      {items === null && !error ? (
+        <SkeletonList rows={3} />
+      ) : filtered.length === 0 ? (
+        <div className="card-padded">
+          <EmptyState
+            icon={Calendar}
+            title="Không có lịch nhắc"
+            text={
+              filter === "all"
+                ? "Lịch nhắc được tạo sau khi bác sĩ duyệt kế hoạch tầm soát có ngày hẹn."
+                : `Không có mục nào ở trạng thái "${REMINDER_STATUS_LABEL[filter]}".`
+            }
+            action={
+              filter !== "all" ? (
+                <button type="button" onClick={() => setFilter("all")} className="btn-secondary">
+                  Hiển thị tất cả
+                </button>
+              ) : (
+                <Link href="/patient" className="btn-secondary">
+                  Về trang tổng quan
+                </Link>
+              )
+            }
+          />
         </div>
       ) : (
         <ul className="space-y-3">
           {filtered.map((r) => (
-            <li
-              key={r.id}
-              className={`card border rounded-xl p-4 transition-all ${STATUS_STYLE[r.status] ?? "bg-white border-slate-200"}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                {/* Info */}
-                <div className="flex-1 space-y-1">
+            <li key={r.id} className={`rounded-lg border p-4 ${ROW_STYLE[r.status] ?? "bg-white border-slate-200"}`}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-slate-800">{r.method}</span>
-                    <span className={`badge ${BADGE_STYLE[r.status] ?? ""}`}>
-                      {STATUS_LABEL[r.status] ?? r.status}
-                    </span>
-                    {r.status === "due" && (
-                      <span className="badge bg-red-100 text-red-700">⚡ Đến hạn rồi!</span>
-                    )}
+                    <span className="text-base font-semibold text-slate-900">{r.method}</span>
+                    <ReminderStatusBadge status={r.status} />
                   </div>
-                  <p className="text-xs text-slate-600">
-                    Loại: <strong>{r.cancer_type}</strong>
-                    {" · "}
-                    Ngày: <strong>{r.due_date}</strong>
-                  </p>
-                  {r.message && (
-                    <p className="text-xs text-slate-500 italic">{r.message}</p>
-                  )}
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-slate-600">
+                    <span>{cancerLabel(r.cancer_type)}</span>
+                    <MetaDivider />
+                    <span>
+                      Hạn: <strong className="font-semibold text-slate-900">{formatDate(r.due_date)}</strong>
+                    </span>
+                  </div>
+                  {r.message && <p className="text-sm text-slate-600">{r.message}</p>}
                   {r.completed_at && (
-                    <p className="text-xs text-green-600">
-                      ✓ Đã hoàn thành: {new Date(r.completed_at).toLocaleDateString("vi-VN")}
+                    <p className="flex items-center gap-1 text-sm font-medium text-emerald-700">
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                      Đã thực hiện ngày {formatDate(r.completed_at)}
                     </p>
                   )}
+                  <Link
+                    href={`/patient/visits/${r.encounter_id}`}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 underline-offset-2 hover:underline"
+                  >
+                    Xem kế hoạch gốc
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Link>
                 </div>
-
-                {/* Action */}
                 {r.status !== "done" && r.status !== "skipped" && (
                   <button
-                    onClick={() => handleComplete(r.id)}
+                    type="button"
+                    onClick={() => void handleComplete(r.id)}
                     disabled={completing === r.id}
-                    className="btn-secondary shrink-0 text-xs"
+                    className="btn-primary shrink-0 self-start sm:self-auto"
                   >
                     {completing === r.id ? (
-                      <span className="spinner h-3 w-3" />
+                      <>
+                        <span className="spinner" aria-hidden="true" />
+                        Đang xử lý…
+                      </>
                     ) : (
-                      "✓ Đã tầm soát"
+                      <>
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                        Tôi đã đi tầm soát
+                      </>
                     )}
                   </button>
                 )}
@@ -151,11 +169,6 @@ export default function RemindersPage() {
           ))}
         </ul>
       )}
-
-      {/* Info note */}
-      <p className="text-xs text-center text-slate-400">
-        Lịch nhắc được tạo tự động sau khi bác sĩ phê duyệt kế hoạch tầm soát.
-      </p>
     </div>
   );
 }
