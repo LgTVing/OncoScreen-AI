@@ -36,26 +36,24 @@ phải qua bác sĩ duyệt. Chỉ dùng hồ sơ giả lập khi thử API LLM 
 
 ## Chạy dự án local (Linux/macOS)
 
-Cần Python 3.11+, Node.js/npm. Docker Compose chỉ cần nếu dùng PostgreSQL. Các lệnh dưới đây chạy FE + BE + AI Core ở chế độ mock; AI Core mock được gọi bên trong backend nên không cần bật server AI riêng.
+Cần Python 3.11+, Node.js/npm. Repo hiện có sẵn `ai_core/.venv` (Python 3.12.3), các thư viện backend/AI Core đã cài trong venv này, cùng `frontend/node_modules`. Docker Compose chỉ cần nếu dùng PostgreSQL. Các lệnh dưới đây chạy frontend + backend ở chế độ mock; backend gọi AI Core mock trực tiếp nên không cần bật server AI riêng.
 
-### 1. Tạo hoặc kích hoạt venv, cài dependencies và cấu hình
+### 1. Kích hoạt môi trường Python và cấu hình
 
-Chạy từ thư mục gốc repo:
+Chạy từ thư mục gốc repo. Mỗi terminal mới cần kích hoạt venv lại:
 
 ```bash
-# Nếu đã setup AI Core trước đó, dùng lại venv hiện có; nếu chưa thì tạo venv ở repo root.
-if [ -x ai_core/.venv/bin/python ]; then
-  source ai_core/.venv/bin/activate
-else
-  python3 -m venv .venv
-  source .venv/bin/activate
-fi
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-[ -f .env ] || cp .env.example .env
+source ai_core/.venv/bin/activate
 ```
 
-Trong `.env`, giữ `USE_MOCK_AGENT=true` để backend gọi MockAgent. Frontend mặc định dùng API backend (`NEXT_PUBLIC_USE_MOCK_API=false`) và API URL localhost; không cần `LLM_API_KEY` cho luồng mock. Khi mở terminal mới, kích hoạt lại đúng venv đã dùng: `source ai_core/.venv/bin/activate` nếu dùng venv AI Core có sẵn, hoặc `source .venv/bin/activate` nếu đã tạo venv ở repo root. Từ thư mục `backend/`, thêm `../` trước đường dẫn venv.
+Nếu cần cài lại/cập nhật dependencies sau khi thay đổi requirements:
+
+```bash
+source ai_core/.venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+Repo hiện đã có `.env`. Nếu tạo checkout mới và chưa có file này, chạy `cp .env.example .env`. Giữ `USE_MOCK_AGENT=true` để backend gọi MockAgent. Frontend mặc định dùng API backend (`NEXT_PUBLIC_USE_MOCK_API=false`) tại localhost; luồng mock không cần `LLM_API_KEY`.
 
 ### 2. Chạy database
 
@@ -72,8 +70,7 @@ Nếu chưa có Docker, có thể dùng SQLite cho dev: sửa dòng `DATABASE_UR
 Mở terminal mới, chạy từ repo root:
 
 ```bash
-# Chạy từ repo root, kích hoạt đúng venv đã chọn ở bước 1.
-if [ -x ai_core/.venv/bin/python ]; then source ai_core/.venv/bin/activate; else source .venv/bin/activate; fi
+source ai_core/.venv/bin/activate
 cd backend
 python scripts/seed.py
 uvicorn app.main:app --reload --port 8000
@@ -108,8 +105,7 @@ Mật khẩu chung: `123456`.
 Để xem JSON demo của AI Core mà không qua giao diện/API, chạy từ repo root trong terminal đã kích hoạt venv:
 
 ```bash
-# Chạy từ repo root, kích hoạt đúng venv đã chọn ở bước 1.
-if [ -x ai_core/.venv/bin/python ]; then source ai_core/.venv/bin/activate; else source .venv/bin/activate; fi
+source ai_core/.venv/bin/activate
 cd ai_core
 python -m ai_core.cli demo
 ```
